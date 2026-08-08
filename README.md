@@ -32,8 +32,9 @@ git commit -m "変更内容"
 ```
 
 4. feature ブランチをPushする
+※ 自分が今どのブランチにいるかを確認すること
 ```
-git push -u origin feature/<機能名>
+git push
 ```
 
 5. GitHubで feature/* → dev のPull Requestを作成する
