@@ -32,7 +32,6 @@ git commit -m "変更内容"
 ```
 
 4. feature ブランチをPushする
-※ 自分が今どのブランチにいるかを確認すること
 ```
 git push
 ```
