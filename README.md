@@ -40,59 +40,81 @@ git push
 ※ PRは確認後に`dev`へマージすること
 
 ## 開発環境
+開発環境では、Docker Composeを使用してPostgreSQLを起動します。
 
-### Docker Compose
+FrontendとBackendはローカル環境で起動します。
 
-開発環境では `docker-compose.yml` を使用する。
+開発環境
+│
+├── Docker
+│   └── PostgreSQL
+│
+├── Frontend
+│   └── Bun + React + TypeScript + Vite + Tailwind CSS
+│
+└── Backend
+    └── Go + Gin
 
-環境変数は `.env.dev` から読み込む。
-
-```text
-.env.dev
-   ↓
-docker-compose.yml
-   ↓
-Docker
-├── frontend
-├── backend
-└── PostgreSQL
+### フロントエンド
+1. 依存関係をインストール
+```
+bun install
 ```
 
-###  ビルド
+2. 起動
 
-```bash
-docker compose --env-file .env.dev build
+```
+bun run dev
 ```
 
-### コンテナの起動
+3. http://localhost:5173へアクセス
 
-```bash
-docker compose --env-file .env.dev up
+### バックエンド
+1. 依存関係をインストール
+```
+go mod download
 ```
 
-### 確認
+2. 起動
+```
+go run ./cmd/server
+```
 
-```bash
+### DB
+
+Docker Composeを使用してPostgreSQLを起動します。
+
+```
+docker compose --env-file .env.dev up -d
+```
+
+PostgreSQLの確認
+
+```
 docker compose ps
 ```
 
-すべてのコンテナが `running` になっていれば起動成功です。
+PostgreSQLのコンテナが running になっていれば起動成功です。
 
-```text
 NAME        SERVICE     STATUS
 db          db          running
+
+Dockerコンテナの停止
+
+開発終了時は以下を実行します。
+
+```
+docker compose down
 ```
 
-### 2回目以降の開発
+PostgreSQLのデータを保持したままコンテナを停止します。
 
-一度セットアップが完了した後は、基本的に以下だけで開発を開始できます。
+PostgreSQLを初期化する場合
 
-```bash
-docker compose --env-file .env.dev up
+データベースを完全に削除して最初からやり直す場合：
+
+```
+docker compose down -v
 ```
 
-コードやDockerfile、依存関係を変更した場合は、必要に応じて再ビルドします。
-
-```bash
-docker compose --env-file .env.dev up --build
-```
+-v を付けるとPostgreSQLのVolumeも削除され、保存されているデータがすべて削除されます。
