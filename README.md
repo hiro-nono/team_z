@@ -118,3 +118,117 @@ docker compose down -v
 ```
 
 -v を付けるとPostgreSQLのVolumeも削除され、保存されているデータがすべて削除されます。
+
+# ER図
+
+```mermaid
+erDiagram
+    ACCOUNT ||--o{ ACCOUNT_STATUS_LOG : has
+    ACCOUNT ||--o{ ACCOUNT_PERMISSION_GRANT : has
+
+    ACCOUNT ||--|| TEACHER : has
+    TEACHER ||--o{ TEACHER_SCHOOL : belongs
+    SCHOOL ||--o{ TEACHER_SCHOOL : has
+
+    ACCOUNT ||--o{ GUARDIAN_STUDENT : guardian
+    STUDENT ||--o{ GUARDIAN_STUDENT : student
+
+    SCHOOL ||--o{ STUDENT_ENROLLMENT : has
+    STUDENT ||--o{ STUDENT_ENROLLMENT : belongs
+
+    ACCOUNT ||--o{ NEWS_INPUT : writes
+    NEWS_INPUT ||--|| NEWS : generates
+
+    ACCOUNT {
+        uuid id PK
+        uuid auth_id
+        string role
+        string status
+        datetime created_at
+        datetime updated_at
+    }
+
+    ACCOUNT_STATUS_LOG {
+        uuid id PK
+        uuid account_id FK
+        string event_type
+        string status
+        datetime created_at
+    }
+
+    ACCOUNT_PERMISSION_GRANT {
+        uuid id PK
+        uuid account_id FK
+        string permission
+        datetime created_at
+        datetime updated_at
+    }
+
+    SCHOOL {
+        uuid id PK
+        string name
+        string type
+        string prefecture
+        string city
+        datetime created_at
+        datetime updated_at
+    }
+
+    TEACHER {
+        uuid id PK
+        uuid account_id FK
+        string family_name
+        string given_name
+        datetime created_at
+        datetime updated_at
+    }
+
+    TEACHER_SCHOOL {
+        uuid id PK
+        uuid teacher_id FK
+        uuid school_id FK
+        datetime started_at
+        datetime ended_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    STUDENT {
+        uuid id PK
+        string family_name
+        string given_name
+        datetime created_at
+        datetime updated_at
+    }
+
+    GUARDIAN_STUDENT {
+        uuid id PK
+        uuid guardian_account_id FK
+        uuid student_id FK
+        datetime created_at
+        datetime updated_at
+    }
+
+    STUDENT_ENROLLMENT {
+        uuid id PK
+        uuid student_id FK
+        uuid school_id FK
+        string class_name
+        string grade
+        string academic_year
+        datetime started_at
+        datetime ended_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    NEWS_INPUT {
+        uuid id PK
+        uuid author_id FK
+    }
+
+    NEWS {
+        uuid id PK
+        uuid news_input_id FK
+    }
+```
