@@ -1,170 +1,203 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
-export default function Signup() {
-  const navigate = useNavigate();
-  
-  // フォームの状態管理
-  const [role, setRole] = useState<'student' | 'parent' | 'teacher'>('student');
+const Signup: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [passwordConfirmation, setPasswordConfirmation] = useState('');
-  const [name, setName] = useState('');
-  const [nameKana, setNameKana] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  // TODO: 登録成功時の画面遷移に使用
+  // const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSignup = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // 簡易バリデーション
-    if (password !== passwordConfirmation) {
+    setError('');
+
+    // --- バリデーション ---
+
+    // 全項目が入力されているか
+    if (!email || !password || !confirmPassword) {
+      setError('すべての項目を入力してください。');
+      return;
+    }
+
+    // メールアドレスの形式チェック
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError('有効なメールアドレスを入力してください。');
+      return;
+    }
+
+    // パスワードの長さチェック（8文字以上）
+    if (password.length < 8) {
+      setError('パスワードは8文字以上で入力してください。');
+      return;
+    }
+
+    // パスワード一致チェック
+    if (password !== confirmPassword) {
       setError('パスワードが一致しません。');
       return;
     }
-    setError('');
 
-    // 送信データの構築（バックエンドのGo/Ginへ送るJSONのイメージ）
-    const signupData = {
-      role,
-      email,
-      password,
-      name,
-      name_kana: nameKana,
-    };
-
-    console.log('送信データ:', signupData);
-    // TODO: 後ほどバックエンドへのAPIリクエスト（fetch / axios）を実装
-    
-    alert('登録処理（仮）を実行しました！');
-    navigate('/signin');
+    console.log('新規登録処理実行:', { email, password });
+    // TODO: バックエンドのAPI連携や画面遷移の処理をここに記述
+    // 例: navigate('/signin');
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-md">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            新規アカウント登録
-          </h2>
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+      {/* 新規登録カード */}
+      <div className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-md space-y-8">
+        {/* タイトル */}
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-gray-800">AIおたよりシステム</h1>
+          <p className="text-gray-500 mt-2">新規アカウントを作成</p>
         </div>
 
-        {error && (
-          <div className="bg-red-50 border-l-4 border-red-400 p-4 text-red-700 text-sm">
-            {error}
-          </div>
-        )}
-
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {/* ロール選択 */}
+        {/* フォーム入力エリア */}
+        <form onSubmit={handleSignup} className="space-y-6">
+          {/* メールアドレス入力 */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              ロール（役割）を選択
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              メールアドレス
             </label>
-            <div className="grid grid-cols-3 gap-3">
-              {(['student', 'parent', 'teacher'] as const).map((r) => {
-                const labelMap = { student: '生徒', parent: '保護者', teacher: '先生' };
-                return (
-                  <button
-                    type="button"
-                    key={r}
-                    onClick={() => setRole(r)}
-                    className={`py-2 px-4 text-sm font-medium rounded-md border ${
-                      role === r
-                        ? 'bg-indigo-600 text-white border-indigo-600'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    {labelMap[r]}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            {/* メールアドレス */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700">メールアドレス</label>
+            <div className="mt-1">
               <input
+                id="email"
+                name="email"
                 type="email"
+                autoComplete="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                placeholder="example@email.com"
+                className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="example@mail.com"
               />
             </div>
+          </div>
 
-            {/* パスワード */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700">パスワード</label>
+          {/* パスワード入力 */}
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              パスワード
+            </label>
+            <div className="mt-1 relative">
               <input
-                type="password"
+                id="password"
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="new-password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                placeholder="••••••••"
+                className="appearance-none block w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="8文字以上で入力"
               />
+              {/* パスワード表示/非表示トグル */}
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                tabIndex={-1}
+              >
+                {showPassword ? (
+                  /* 非表示アイコン（目に斜線） */
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                    <line x1="1" y1="1" x2="23" y2="23" />
+                  </svg>
+                ) : (
+                  /* 表示アイコン（目） */
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                )}
+              </button>
             </div>
+            {/* パスワード条件のヒント */}
+            <p className="mt-1 text-xs text-gray-400">※ 8文字以上で設定してください</p>
+          </div>
 
-            {/* パスワード確認 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700">パスワード（確認）</label>
+          {/* パスワード確認入力 */}
+          <div>
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+              パスワード（確認）
+            </label>
+            <div className="mt-1 relative">
               <input
-                type="password"
+                id="confirmPassword"
+                name="confirmPassword"
+                type={showConfirmPassword ? 'text' : 'password'}
+                autoComplete="new-password"
                 required
-                value={passwordConfirmation}
-                onChange={(e) => setPasswordConfirmation(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                placeholder="••••••••"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="appearance-none block w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="もう一度パスワードを入力"
               />
-            </div>
-
-            {/* 氏名（漢字） */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700">氏名（漢字）</label>
-              <input
-                type="text"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                placeholder="山田 花子"
-              />
-              <p className="mt-1 text-xs text-gray-500">※特殊な漢字で入力が難しい場合は一般的な漢字や別名で代用可能です</p>
-            </div>
-
-            {/* 氏名（カナ） */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700">氏名（カナ）</label>
-              <input
-                type="text"
-                required
-                value={nameKana}
-                onChange={(e) => setNameKana(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                placeholder="ヤマダ ハナコ"
-              />
+              {/* パスワード確認の表示/非表示トグル */}
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                tabIndex={-1}
+              >
+                {showConfirmPassword ? (
+                  /* 非表示アイコン（目に斜線） */
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                    <line x1="1" y1="1" x2="23" y2="23" />
+                  </svg>
+                ) : (
+                  /* 表示アイコン（目） */
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                )}
+              </button>
             </div>
           </div>
 
+          {/* エラーメッセージ表示エリア */}
+          {error && (
+            <div className="text-red-600 text-sm text-center bg-red-50 border border-red-200 rounded-md p-3">
+              {error}
+            </div>
+          )}
+
+          {/* 新規登録ボタン */}
           <div>
             <button
               type="submit"
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
             >
-              登録する
+              アカウントを作成する
             </button>
           </div>
-
-          <div className="text-center text-sm">
-            <a href="/signin" className="font-medium text-indigo-600 hover:text-indigo-500">
-              すでにアカウントをお持ちの方はこちら（ログイン）
-            </a>
-          </div>
         </form>
+
+        {/* ログインへのリンク */}
+        <div className="text-center border-t border-gray-200 pt-6">
+          <p className="text-sm text-gray-500">
+            すでにアカウントをお持ちの方はこちら
+          </p>
+          <Link
+            to="/signin"
+            className="mt-3 w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+          >
+            ログインへ戻る
+          </Link>
+        </div>
       </div>
     </div>
   );
-}
+};
+
+export default Signup;
