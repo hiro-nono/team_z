@@ -33,6 +33,7 @@ const (
 	AccountPermissionNewsEdit      AccountPermission = "NEWS_EDIT"      // おたより編集
 	AccountPermissionNewsPublish   AccountPermission = "NEWS_PUBLISH"   // おたより公開
 	AccountPermissionTeacherManage AccountPermission = "TEACHER_MANAGE" // 先生管理
+	AccountPermissionClassManage   AccountPermission = "CLASS_MANAGE"   // クラス管理
 )
 
 // アカウント権限

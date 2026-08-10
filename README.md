@@ -209,6 +209,17 @@ erDiagram
         datetime updated_at
     }
 
+    CLASS {
+        uuid id PK
+        uuid school_id FK
+        string grade
+        string code
+        string name
+        string academic_year
+        datetime created_at
+        datetime updated_at
+    }
+
     STUDENT_ENROLLMENT {
         uuid id PK
         uuid student_id FK

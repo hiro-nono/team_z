@@ -23,9 +23,8 @@ type School struct {
 	Type       SchoolType `gorm:"type:varchar(30);not null;index"`
 	Prefecture string     `gorm:"type:varchar(100);not null"`
 	City       string     `gorm:"type:varchar(100);not null"`
-
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 // 先生情報
@@ -49,4 +48,16 @@ type TeacherSchool struct {
 	EndedAt   *time.Time // 最新所属先の場合は、nilとする
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+// 学校が設定する年度単位のクラス情報
+type Class struct {
+	ID           uuid.UUID `gorm:"type:uuid;primaryKey"`
+	SchoolID     uuid.UUID `gorm:"type:uuid;not null;index"`
+	Grade        string    `gorm:"type:varchar(50);not null"`
+	Number       int       `gorm:"not null"`                   // 表示のためのナンバリング
+	Name         string    `gorm:"type:varchar(100);not null"` // クラス名（例：1年1組・A組・楓組）
+	AcademicYear string    `gorm:"type:varchar(20);not null"`  // 年度
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
