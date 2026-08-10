@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import Signin from "./auth/Signin";
-
+import Signup from "./auth/Signup";
 export default function App() {
   // ログイン状態を管理（実際の開発では localStorage や Cookie、状態管理ライブラリに置き換えてください）
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
