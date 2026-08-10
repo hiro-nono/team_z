@@ -46,9 +46,6 @@ FrontendとBackendはローカル環境で起動します。
 
 開発環境
 │
-├── Docker
-│   └── PostgreSQL
-│
 ├── Frontend
 │   └── Bun + React + TypeScript + Vite + Tailwind CSS
 │
@@ -82,42 +79,7 @@ go run ./cmd/server
 
 ### DB
 
-Docker Composeを使用してPostgreSQLを起動します。
-
-```
-docker compose --env-file .env.dev up -d
-```
-
-PostgreSQLの確認
-
-```
-docker compose ps
-```
-
-PostgreSQLのコンテナが running になっていれば起動成功です。
-
-NAME        SERVICE     STATUS
-db          db          running
-
-Dockerコンテナの停止
-
-開発終了時は以下を実行します。
-
-```
-docker compose down
-```
-
-PostgreSQLのデータを保持したままコンテナを停止します。
-
-PostgreSQLを初期化する場合
-
-データベースを完全に削除して最初からやり直す場合：
-
-```
-docker compose down -v
-```
-
--v を付けるとPostgreSQLのVolumeも削除され、保存されているデータがすべて削除されます。
+Supabase より提供されるAPIをつかって、PostgreSQLをしようします。
 
 # ER図
 
