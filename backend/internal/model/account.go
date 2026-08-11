@@ -11,7 +11,6 @@ type AccountRole string
 
 const (
 	AccountRoleAdmin    AccountRole = "ADMIN"    // 管理権限
-	AccountRoleSchool   AccountRole = "SCHOOL"   // 学校権限
 	AccountRoleGuardian AccountRole = "GUARDIAN" // 保護者権限
 )
 
@@ -20,30 +19,6 @@ type Account struct {
 	ID        uuid.UUID   `gorm:"type:uuid;primaryKey"`
 	AuthID    uuid.UUID   `gorm:"type:uuid;uniqueIndex;not null"` // 認証ID
 	Role      AccountRole `gorm:"type:varchar(20);not null"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-}
-
-// アカウント操作権限
-// Roleとは別に、学校内で許可されている操作を管理する。
-type AccountPermission string
-
-const (
-	AccountPermissionNewsCreate    AccountPermission = "NEWS_CREATE"    // おたより作成
-	AccountPermissionNewsEdit      AccountPermission = "NEWS_EDIT"      // おたより編集
-	AccountPermissionNewsPublish   AccountPermission = "NEWS_PUBLISH"   // おたより公開
-	AccountPermissionTeacherManage AccountPermission = "TEACHER_MANAGE" // 先生管理
-	AccountPermissionClassManage   AccountPermission = "CLASS_MANAGE"   // クラス管理
-)
-
-// アカウント権限
-// AccountとPermissionの関連を管理する。
-type AccountPermissionGrant struct {
-	ID uuid.UUID `gorm:"type:uuid;primaryKey"`
-
-	AccountID  uuid.UUID         `gorm:"type:uuid;not null;index"`
-	Permission AccountPermission `gorm:"type:varchar(30);not null;index"`
-
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
