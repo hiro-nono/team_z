@@ -118,90 +118,15 @@ erDiagram
         datetime created_at
     }
 
-    ACCOUNT_PERMISSION_GRANT {
+    OAUTH {
         uuid id PK
         uuid account_id FK
-        string permission
+        string provider
+        string provider_id
+        string access_token
+        string refresh_token
+        string expired_at
         datetime created_at
         datetime updated_at
-    }
-
-    SCHOOL {
-        uuid id PK
-        string name
-        string type
-        string prefecture
-        string city
-        datetime created_at
-        datetime updated_at
-    }
-
-    TEACHER {
-        uuid id PK
-        uuid account_id FK
-        string family_name
-        string given_name
-        datetime created_at
-        datetime updated_at
-    }
-
-    TEACHER_SCHOOL {
-        uuid id PK
-        uuid teacher_id FK
-        uuid school_id FK
-        datetime started_at
-        datetime ended_at
-        datetime created_at
-        datetime updated_at
-    }
-
-    STUDENT {
-        uuid id PK
-        string family_name
-        string given_name
-        datetime created_at
-        datetime updated_at
-    }
-
-    GUARDIAN_STUDENT {
-        uuid id PK
-        uuid guardian_account_id FK
-        uuid student_id FK
-        datetime created_at
-        datetime updated_at
-    }
-
-    CLASS {
-        uuid id PK
-        uuid school_id FK
-        string grade
-        string code
-        string name
-        string academic_year
-        datetime created_at
-        datetime updated_at
-    }
-
-    STUDENT_ENROLLMENT {
-        uuid id PK
-        uuid student_id FK
-        uuid school_id FK
-        string class_name
-        string grade
-        string academic_year
-        datetime started_at
-        datetime ended_at
-        datetime created_at
-        datetime updated_at
-    }
-
-    NEWS_INPUT {
-        uuid id PK
-        uuid author_id FK
-    }
-
-    NEWS {
-        uuid id PK
-        uuid news_input_id FK
     }
 ```
