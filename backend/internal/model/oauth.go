@@ -15,4 +15,6 @@ type OAuth struct {
 	AccessToken  string    `gorm:"type:text;not null"`
 	RefreshToken string    `gorm:"type:text"`
 	ExpiredAt    time.Time
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
