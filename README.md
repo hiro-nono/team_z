@@ -16,20 +16,47 @@ main
 4. featureブランチをPushする
 5. GitHubで `feature/*` から `dev` へのPull Requestを作成する
 
-## Vertical Slice: PDF → AI抽出 → Action Decision
+## MVP: PDF → AI抽出 → Action Decision → Google Calendar
 
-保護者がPDFをアップロードすると、サーバー側のAIが複数の行事・提出期限を抽出します。その後、Backendが決定論的に予定候補の扱いを判定し、画面に表示します。
-
-Google Calendar OAuth / Calendar APIへの実登録はまだ行いません。
+保護者がPDFをアップロードすると、サーバー側のAIが複数の行事・提出期限を抽出します。Backendがschema validationと決定論的なAction Decisionを行い、Google OAuth済みの場合だけ予定候補をGoogle Calendarへ登録できます。
 
 ### 構成
 
 - Frontend: React + TypeScript + Vite + Tailwind CSS
 - API: Node.js標準HTTPサーバー
-- AI: OpenAI Responses API（APIキーはサーバーのみで利用）
-- PostgreSQL: 将来の履歴保存用。現在のVertical Sliceでは使用しない
+- AI: OpenAI SDK Responses API（既定はOrcaRouter、OpenAI directへ切替可能。APIキーはBackendのみで利用）
+- Google連携: 公式 `googleapis` Node.jsクライアント、OAuth 2.0 server-side web application
+- Token保存: `GoogleTokenStore`抽象に相当するIn-memory実装（開発用）
+- PostgreSQL: 将来の履歴保存用。現在のMVPでは使用しない
 
-### データフロー
+### OrcaRouter / OpenAI direct切替
+
+AIリクエストは`backend/ai-client.mjs`に分離しています。既定ではOrcaRouterのOpenAI SDK互換`baseURL`を使い、現在のResponses API、PDFの`input_file`、Strict Structured Output、Backendのschema validation、Action Decisionを維持します。
+
+`backend/.env`の基本設定は次のとおりです。
+
+```dotenv
+AI_PROVIDER=orcarouter
+AI_BASE_URL=https://api.orcarouter.ai/v1
+AI_API_KEY=replace-with-your-orcarouter-key
+AI_MODEL=openai/gpt-4o-mini
+AI_DEBUG=false
+```
+
+OpenAI directへ切り替えて切り分ける場合は、環境変数だけ変更します。
+
+```dotenv
+AI_PROVIDER=openai
+AI_BASE_URL=https://api.openai.com/v1
+AI_API_KEY=replace-with-your-openai-key
+AI_MODEL=gpt-4.1-mini
+```
+
+`AI_MODEL`は環境変数から変更できます。OrcaRouterでは最初から`orcarouter/auto`を使わず、`openai/gpt-4o-mini`を既定の明示モデルにしています。`AI_DEBUG=true`の場合だけ、Backendログにprovider、要求モデル、OrcaRouterのresolved model、request IDなどの非秘密metadataを出力します。APIキーやToken、PDF本文はログ・Frontendレスポンスへ出しません。
+
+OrcaRouterの実ネットワーク経路とPDF対応を確認するには、キーをBackendの`.env`だけに設定して、通常のPDF解析を実行します。キーがない環境では、テストがResponsesリクエスト形状とエラー処理をモック検証します。
+
+### AI・予定登録のデータフロー
 
 ```text
 PDF upload
@@ -45,10 +72,18 @@ Backend Action Decision
   ├─ CONFIRM_REQUIRED
   └─ BLOCKED
   ↓
-候補別UI + 構造化JSON
+候補別UI
+  ↓
+POST /api/calendar/events
+  ↓
+Backendがcandidateを再検証・再判定
+  ↓
+Google OAuth token refresh
+  ↓
+Google Calendar Events API（primary calendar）
 ```
 
-LLMは事実抽出とconfidenceまでを出力します。`action_decision` と `action_reason` はLLMには持たせず、Backendが付与します。
+LLMは事実抽出とconfidenceだけを出力します。`action_decision`、`action_reason`、登録可否はLLMに決めさせず、Backendが毎回再計算します。
 
 ### Structured Output
 
@@ -89,34 +124,89 @@ LLMは事実抽出とconfidenceまでを出力します。`action_decision` と 
 | 状態 | 条件 |
 |---|---|
 | `AUTO_CREATE` | titleあり、確定日付、曖昧表現なし、confidence >= 0.90 |
-| `CONFIRM_REQUIRED` | 確定日付あり、confidence 0.70〜0.89 |
-| `BLOCKED` | 日付なし、曖昧日付、confidence < 0.70、または日付形式不正 |
+| `CONFIRM_REQUIRED` | 確定日付あり、confidence 0.70〜0.89。登録には `confirmed: true` が必要 |
+| `BLOCKED` | 日付なし、曖昧日付、confidence < 0.70、またはschema／日付形式不正 |
 
-source evidenceに「上旬」「頃」「来週」などが含まれる場合は、日付が具体化されていてもBackendが`BLOCKED`にします。
+source evidenceに「上旬」「頃」「来週」などが含まれる場合は、日付が具体化されていてもBackendが`BLOCKED`にします。Calendar APIへ渡す直前にも同じ判定を行うため、Frontendから送られた判定値は信用しません。
+
+### Google OAuthとCalendar API
+
+以下のAPIをBackendに実装しています。
+
+- `GET /api/google/auth/start`: stateを生成・保存し、認可URLだけを返す
+- `GET /api/google/auth/callback`: stateを検証してcodeをtokenへ交換し、tokenをBackendだけに保存
+- `GET /api/google/status`: Frontend向けに接続済みかどうかだけを返す
+- `POST /api/calendar/events`: candidateを再検証・再判定してGoogle Calendarへ登録
+
+OAuth scopeは `https://www.googleapis.com/auth/calendar.events` のみです。`access_type: offline` を使用し、access tokenの期限が近い場合はrefresh tokenでBackendが自動更新します。refresh tokenが再認証時に返らない場合は、既存refresh tokenを保持します。
+
+Calendarイベントの変換は以下です。
+
+- `title` → `summary`
+- `date + start_time` → `start.dateTime`
+- `date`だけ → all-day event（`start.date`と翌日の`end.date`）
+- `location` → `location`
+- `items`、`required_actions`、`source_evidence` → `description`
+- timezoneは`Asia/Tokyo`
+- 終了時刻がなく開始時刻だけある場合は、MVPでは60分後を終了時刻として設定し、その旨をdescriptionに記載
+
+同じアカウントで `kind + title + date + start_time` が一致するcandidateはSHA-256 fingerprintで重複判定し、既存のGoogle event情報を返します。
+
+### Token保存と開発上の注意
+
+現在は`InMemoryGoogleTokenStore`を使っています。access token、refresh token、client secretはFrontendへ返さず、ログにも出力しません。
+
+これは開発用実装のため、**server再起動でOAuth接続が消えます**。本番化する際は、次のような永続化層へ置き換えます。
+
+```text
+Account
+- id
+
+GoogleCalendarConnection
+- id
+- account_id
+- provider_user_id
+- access_token
+- refresh_token
+- expires_at
+- scopes
+```
+
+MVPでは最小scopeを使うためGoogle user IDを取得せず、`provider_user_id`はnullを許容しています。
 
 ### 必要な環境
 
 - Node.js 20.6以上
 - npm
-- OpenAI APIキー
+- OrcaRouter APIキー（または切り分け用のOpenAI APIキー）
+- Google CloudプロジェクトのOAuth Web Client ID／Secret
 
 ### 起動方法
 
-1. AI APIキーを設定します。
+1. Backendの依存関係をインストールします。
+
+```bash
+cd backend
+npm install
+cd ..
+```
+
+2. 環境変数ファイルを作成します。
 
 ```bash
 cp backend/.env.example backend/.env
 ```
 
-`backend/.env` の `OPENAI_API_KEY` を実際のキーに変更してください。このファイルはGitへコミットしません。
+`backend/.env` に `AI_PROVIDER`、`AI_BASE_URL`、`AI_API_KEY`、`AI_MODEL`、`GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET`を設定してください。実際のsecretをGitへコミットしないでください。
 
-2. バックエンドを起動します。
+3. Backendを起動します。
 
 ```bash
-node --env-file=backend/.env backend/server.mjs
+cd backend
+npm run dev
 ```
 
-3. 別ターミナルでフロントエンドを起動します。
+4. 別ターミナルでFrontendを起動します。
 
 ```bash
 cd frontend
@@ -124,19 +214,40 @@ npm install
 npm run dev
 ```
 
-ブラウザで http://localhost:5173 を開きます。フロントエンドは`/api/analyze`をViteのプロキシ経由でバックエンドへ送信します。
+ブラウザで http://localhost:5173 を開きます。Frontendの`/api`リクエストはVite proxy経由で http://localhost:3001 のBackendへ送信されます。
+
+### Google Cloud Consoleでの手動設定
+
+ローカルでOAuthを動かすには、次を一度設定します。
+
+1. Google Cloud Consoleでプロジェクトを作成または選択する
+2. **Google Calendar API**を有効化する
+3. OAuth consent screenを設定する。Externalの場合は自分のGoogleアカウントをTest userへ追加する
+4. CredentialsからOAuth Client IDを作成し、Application typeを**Web application**にする
+5. Authorized redirect URIに次を完全一致で追加する
+
+   `http://localhost:3001/api/google/auth/callback`
+
+6. 発行されたClient IDとClient Secretを`backend/.env`へ設定する
+7. `.env`の`GOOGLE_REDIRECT_URI`とConsoleのredirect URIが一致していることを確認する
+
+Redirect URIが1文字でも異なる場合、Googleは`redirect_uri_mismatch`を返します。
 
 ### テスト・確認コマンド
 
 ```bash
-node --test backend/tests/*.test.mjs
-node --check backend/server.mjs
-cd frontend
+cd backend
+npm test
+node --check server.mjs
+node --check google-auth.mjs
+node --check google-calendar.mjs
+
+cd ../frontend
 npm run lint
 npm run build
 ```
 
-テストには以下のfixture/mockケースを含みます。
+テストには以下のAI／Action Decision／Google mockケースを含みます。
 
 1. 行事1件
 2. 行事＋提出期限
@@ -144,21 +255,21 @@ npm run build
 4. 「9月上旬」などの曖昧日付
 5. 日程情報なし
 6. 壊れたAI schema
-7. AIが具体日付を出してもevidenceが「頃」のケース
-
-### Google Calendar連携時の接続ポイント
-
-Calendar API連携では、Backendの`calendar_candidates`に付与された`action_decision`を入口にします。
-
-- `AUTO_CREATE`: OAuth済みユーザーのCalendarイベント作成処理へ渡す
-- `CONFIRM_REQUIRED`: ユーザー確認後に作成処理へ渡す
-- `BLOCKED`: Calendar APIへ渡さない
-
-Calendar API用のOAuthトークンや登録処理は、LLM呼び出し処理とは分離して追加します。
+7. evidence内の曖昧表現
+8. OrcaRouter baseURL、Responses API、PDF `input_file`、Strict Structured Output
+9. OpenAI direct切替とAPIキー非公開
+10. AI upstream errorとtimeoutのBackendエラー化
+11. OAuth URLとoffline scope
+12. OAuth state不一致
+13. AUTO_CREATE登録
+14. CONFIRM_REQUIREDの確認前拒否／確認後登録
+15. BLOCKEDの常時拒否
+16. fingerprintによる重複登録防止
+17. access token refreshとrefresh token保持
 
 ## PostgreSQL
 
-将来の履歴保存用にDocker ComposeでPostgreSQLを起動できます。現在のVertical SliceではDBを使用しません。
+将来の履歴保存用にDocker ComposeでPostgreSQLを起動できます。現在のMVPではDBを使用しません。
 
 ```bash
 docker compose --env-file .env.dev up -d

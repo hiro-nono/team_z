@@ -1,9 +1,10 @@
-import { type ChangeEvent, type DragEvent, useState } from 'react'
+import { type ChangeEvent, type DragEvent, useEffect, useState } from 'react'
 import './App.css'
 
 type ActionDecision = 'AUTO_CREATE' | 'CONFIRM_REQUIRED' | 'BLOCKED'
 type CandidateKind = 'event' | 'deadline'
 type DateStatus = 'exact' | 'ambiguous' | 'missing'
+type RegistrationState = 'loading' | 'success' | 'error'
 
 type CalendarCandidate = {
   kind: CandidateKind
@@ -29,10 +30,20 @@ type SchoolNotice = {
   general_actions: string[]
 }
 
+type RegistrationResult = {
+  state: RegistrationState
+  message: string
+  htmlLink: string | null
+}
+
 type ApiErrorResponse = {
   error?: {
     message?: string
   }
+}
+
+type AuthorizationResponse = {
+  url?: string
 }
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024
@@ -122,6 +133,10 @@ function formatSchedule(candidate: CalendarCandidate) {
   return times.length > 0 ? `${date} ${times.join('〜')}` : date
 }
 
+function candidateKey(candidate: CalendarCandidate) {
+  return [candidate.kind, candidate.title.trim().normalize('NFKC').toLocaleLowerCase('ja-JP'), candidate.date ?? '', candidate.start_time ?? ''].join('|')
+}
+
 function getErrorMessage(payload: unknown, fallback: string) {
   if (typeof payload === 'object' && payload !== null) {
     const apiError = payload as ApiErrorResponse
@@ -133,9 +148,18 @@ function getErrorMessage(payload: unknown, fallback: string) {
   return fallback
 }
 
-function CandidateCard({ candidate }: { candidate: CalendarCandidate }) {
+function CandidateCard({
+  candidate,
+  registration,
+  onRegister,
+}: {
+  candidate: CalendarCandidate
+  registration?: RegistrationResult
+  onRegister: (candidate: CalendarCandidate) => void
+}) {
   const decisionStyle = DECISION_STYLES[candidate.action_decision]
   const kindLabel = candidate.kind === 'event' ? '行事' : '提出期限'
+  const isLoading = registration?.state === 'loading'
 
   return (
     <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -188,6 +212,27 @@ function CandidateCard({ candidate }: { candidate: CalendarCandidate }) {
         <p className="mt-1 text-slate-700">{candidate.action_reason}</p>
       </div>
       <p className="mt-3 border-l-2 border-slate-300 pl-3 text-xs leading-5 text-slate-500">根拠：「{candidate.source_evidence}」</p>
+
+      {candidate.action_decision !== 'BLOCKED' && (
+        <button
+          type="button"
+          onClick={() => onRegister(candidate)}
+          disabled={isLoading}
+          className="mt-4 w-full rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
+        >
+          {isLoading ? 'Google Calendarへ登録中…' : candidate.action_decision === 'AUTO_CREATE' ? 'Google Calendarに登録' : '内容を確認して登録'}
+        </button>
+      )}
+
+      {registration?.state === 'success' && (
+        <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          <p className="font-semibold">✓ {registration.message}</p>
+          {registration.htmlLink && (
+            <a className="mt-1 inline-block underline" href={registration.htmlLink} target="_blank" rel="noreferrer">Google Calendarで開く</a>
+          )}
+        </div>
+      )}
+      {registration?.state === 'error' && <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700" role="alert">{registration.message}</p>}
     </article>
   )
 }
@@ -197,10 +242,44 @@ function App() {
   const [result, setResult] = useState<SchoolNotice | null>(null)
   const [error, setError] = useState('')
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [isGoogleConnected, setIsGoogleConnected] = useState(false)
+  const [isGoogleLoading, setIsGoogleLoading] = useState(true)
+  const [googleMessage, setGoogleMessage] = useState('')
+  const [registrations, setRegistrations] = useState<Record<string, RegistrationResult>>({})
+
+  useEffect(() => {
+    const refreshGoogleStatus = async () => {
+      try {
+        const response = await fetch('/api/google/status')
+        const payload: unknown = await response.json()
+        if (!response.ok || typeof payload !== 'object' || payload === null || typeof (payload as { connected?: unknown }).connected !== 'boolean') {
+          throw new Error('Google Calendarの接続状態を取得できませんでした。')
+        }
+        setIsGoogleConnected((payload as { connected: boolean }).connected)
+      } catch {
+        setGoogleMessage('Google Calendarの接続状態を取得できませんでした。')
+      } finally {
+        setIsGoogleLoading(false)
+      }
+    }
+
+    const params = new URLSearchParams(window.location.search)
+    const googleResult = params.get('google')
+    if (googleResult === 'connected') {
+      setGoogleMessage('Google Calendarと接続しました。')
+      window.history.replaceState({}, '', window.location.pathname)
+    } else if (googleResult === 'error') {
+      setGoogleMessage('Google Calendarとの接続に失敗しました。もう一度お試しください。')
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+
+    void refreshGoogleStatus()
+  }, [])
 
   const selectFile = (nextFile: File | undefined) => {
     setError('')
     setResult(null)
+    setRegistrations({})
 
     if (!nextFile) {
       return
@@ -239,6 +318,7 @@ function App() {
     setIsAnalyzing(true)
     setError('')
     setResult(null)
+    setRegistrations({})
 
     try {
       const formData = new FormData()
@@ -266,17 +346,92 @@ function App() {
     }
   }
 
+  const handleGoogleConnect = async () => {
+    setIsGoogleLoading(true)
+    setGoogleMessage('')
+
+    try {
+      const response = await fetch('/api/google/auth/start')
+      const payload: unknown = await response.json()
+      const authorization = payload as AuthorizationResponse
+      if (!response.ok || typeof authorization.url !== 'string') {
+        throw new Error(getErrorMessage(payload, 'Google OAuthを開始できませんでした。'))
+      }
+      window.location.assign(authorization.url)
+    } catch (caughtError) {
+      setIsGoogleLoading(false)
+      setGoogleMessage(caughtError instanceof Error ? caughtError.message : 'Google OAuthを開始できませんでした。')
+    }
+  }
+
+  const handleRegister = async (candidate: CalendarCandidate) => {
+    const key = candidateKey(candidate)
+    setRegistrations((current) => ({
+      ...current,
+      [key]: { state: 'loading', message: '', htmlLink: null },
+    }))
+
+    try {
+      const response = await fetch('/api/calendar/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          candidate,
+          confirmed: candidate.action_decision === 'CONFIRM_REQUIRED',
+        }),
+      })
+      const payload: unknown = await response.json()
+
+      if (!response.ok) {
+        throw new Error(getErrorMessage(payload, 'Google Calendarへの登録に失敗しました。'))
+      }
+
+      const event = typeof payload === 'object' && payload !== null ? (payload as { event?: { htmlLink?: unknown }; duplicate?: unknown }).event : undefined
+      const duplicate = typeof payload === 'object' && payload !== null && (payload as { duplicate?: unknown }).duplicate === true
+      setRegistrations((current) => ({
+        ...current,
+        [key]: {
+          state: 'success',
+          message: duplicate ? 'この予定はすでに登録済みです。' : 'Google Calendarに登録しました。',
+          htmlLink: typeof event?.htmlLink === 'string' ? event.htmlLink : null,
+        },
+      }))
+    } catch (caughtError) {
+      setRegistrations((current) => ({
+        ...current,
+        [key]: {
+          state: 'error',
+          message: caughtError instanceof Error ? caughtError.message : 'Google Calendarへの登録に失敗しました。',
+          htmlLink: null,
+        },
+      }))
+    }
+  }
+
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-900 sm:px-6">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
         <header>
-          <p className="text-sm font-semibold tracking-wide text-indigo-600">学校のおたより整理AI</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
-            PDFをアップロードして、予定候補を安全に整理
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-            AIが抽出した予定候補をBackendが確認し、自動登録・要確認・登録不可に分類します。Google Calendarへの登録はまだ行いません。
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold tracking-wide text-indigo-600">学校のおたより整理AI</p>
+              <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
+                PDFをアップロードして、予定候補を安全に整理
+              </h1>
+            </div>
+            <button
+              type="button"
+              onClick={handleGoogleConnect}
+              disabled={isGoogleLoading || isGoogleConnected}
+              className={`rounded-lg px-4 py-2.5 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-default ${isGoogleConnected ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-slate-300'}`}
+            >
+              {isGoogleConnected ? '✓ Google Calendar 接続済み' : isGoogleLoading ? '接続状態を確認中…' : 'Google Calendarと連携'}
+            </button>
+          </div>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600 sm:text-base">
+            AIが抽出した予定候補をBackendが確認し、自動登録・要確認・登録不可に分類します。登録前にもBackendが判定を再計算します。
           </p>
+          {googleMessage && <p className="mt-3 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-700" role="status">{googleMessage}</p>}
         </header>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7" aria-labelledby="upload-heading">
@@ -331,7 +486,12 @@ function App() {
             {result.calendar_candidates.length > 0 ? (
               <div className="mt-6 space-y-4">
                 {result.calendar_candidates.map((candidate, index) => (
-                  <CandidateCard key={`${candidate.title}-${candidate.date ?? candidate.date_status}-${index}`} candidate={candidate} />
+                  <CandidateCard
+                    key={`${candidate.title}-${candidate.date ?? candidate.date_status}-${index}`}
+                    candidate={candidate}
+                    registration={registrations[candidateKey(candidate)]}
+                    onRegister={handleRegister}
+                  />
                 ))}
               </div>
             ) : (
