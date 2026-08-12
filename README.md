@@ -85,21 +85,12 @@ Supabase より提供されるAPIをつかって、PostgreSQLをしようしま�
 
 ```mermaid
 erDiagram
-    ACCOUNT ||--o{ ACCOUNT_STATUS_LOG : has
-    ACCOUNT ||--o{ ACCOUNT_PERMISSION_GRANT : has
 
-    ACCOUNT ||--|| TEACHER : has
-    TEACHER ||--o{ TEACHER_SCHOOL : belongs
-    SCHOOL ||--o{ TEACHER_SCHOOL : has
-
-    ACCOUNT ||--o{ GUARDIAN_STUDENT : guardian
-    STUDENT ||--o{ GUARDIAN_STUDENT : student
-
-    SCHOOL ||--o{ STUDENT_ENROLLMENT : has
-    STUDENT ||--o{ STUDENT_ENROLLMENT : belongs
-
-    ACCOUNT ||--o{ NEWS_INPUT : writes
-    NEWS_INPUT ||--|| NEWS : generates
+    Auth {
+        uuid id PK
+        string email
+        string password
+    }
 
     ACCOUNT {
         uuid id PK
