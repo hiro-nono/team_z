@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "googleapis": "^174.0.1",
-    "openai": "^7.4.0"
+    "openai": "^7.4.0",
+    "pg": "^8.16.3"
   }
 }

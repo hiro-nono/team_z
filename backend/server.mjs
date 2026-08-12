@@ -1,7 +1,10 @@
 import { createServer } from 'node:http'
+import { getAccountIdFromRequest } from './account-context.mjs'
 import { addActionDecisions } from './action-decision.mjs'
 import { AiClient, buildPdfResponseRequest } from './ai-client.mjs'
-import { DEFAULT_ACCOUNT_ID, GoogleOAuthService } from './google-auth.mjs'
+import { createDatabasePool } from './db.mjs'
+import { GoogleCalendarConnectionRepository } from './google-calendar-repository.mjs'
+import { GoogleOAuthService } from './google-auth.mjs'
 import { GoogleCalendarService } from './google-calendar.mjs'
 import { NOTICE_SCHEMA, SYSTEM_PROMPT, validateNotice } from './notice-schema.mjs'
 
@@ -12,12 +15,14 @@ const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173'
 const FRONTEND_URL = process.env.FRONTEND_URL ?? FRONTEND_ORIGIN
 
 const aiClient = new AiClient()
-const googleOAuthService = new GoogleOAuthService()
+const databasePool = process.env.DATABASE_URL ? createDatabasePool() : null
+const googleConnectionRepository = new GoogleCalendarConnectionRepository({ pool: databasePool })
+const googleOAuthService = new GoogleOAuthService({ tokenStore: googleConnectionRepository })
 const googleCalendarService = new GoogleCalendarService({ authService: googleOAuthService })
 
 function setResponseHeaders(response) {
   response.setHeader('Access-Control-Allow-Origin', FRONTEND_ORIGIN)
-  response.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  response.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Account-ID')
   response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
   response.setHeader('Vary', 'Origin')
 }
@@ -265,6 +270,7 @@ async function handleGoogleAuthCallback(response, url) {
 }
 
 async function handleCalendarEventCreate(request, response) {
+  const accountId = getAccountIdFromRequest(request)
   const body = await parseJsonBody(request)
   if (typeof body !== 'object' || body === null || typeof body.candidate !== 'object' || body.candidate === null) {
     sendError(response, 400, 'CANDIDATE_REQUIRED', 'calendar_candidateを指定してください。')
@@ -272,7 +278,7 @@ async function handleCalendarEventCreate(request, response) {
   }
 
   const result = await googleCalendarService.createEvent({
-    accountId: DEFAULT_ACCOUNT_ID,
+    accountId,
     candidate: stripClientDecision(body.candidate),
     confirmed: body.confirmed === true,
   })
@@ -291,7 +297,8 @@ const server = createServer(async (request, response) => {
     }
 
     if (url.pathname === '/api/google/auth/start' && request.method === 'GET') {
-      const { url: authorizationUrl } = await googleOAuthService.createAuthorizationUrl(DEFAULT_ACCOUNT_ID)
+      const accountId = getAccountIdFromRequest(request)
+      const { url: authorizationUrl } = await googleOAuthService.createAuthorizationUrl(accountId)
       sendJson(response, 200, { url: authorizationUrl })
       return
     }
@@ -301,8 +308,9 @@ const server = createServer(async (request, response) => {
       return
     }
 
-    if (url.pathname === '/api/google/status' && request.method === 'GET') {
-      sendJson(response, 200, await googleOAuthService.getConnectionStatus(DEFAULT_ACCOUNT_ID))
+    if ((url.pathname === '/api/google/status' || url.pathname === '/api/google/connection/status') && request.method === 'GET') {
+      const accountId = getAccountIdFromRequest(request)
+      sendJson(response, 200, await googleOAuthService.getConnectionStatus(accountId))
       return
     }
 

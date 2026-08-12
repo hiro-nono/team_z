@@ -187,7 +187,7 @@ export class GoogleOAuthService {
 
   async getConnectionStatus(accountId = DEFAULT_ACCOUNT_ID) {
     const connection = await this.tokenStore.get(accountId)
-    return { connected: Boolean(connection?.accessToken) }
+    return { connected: Boolean(connection?.accessToken || connection?.refreshToken) }
   }
 
   async getAuthorizedClient(accountId = DEFAULT_ACCOUNT_ID) {
