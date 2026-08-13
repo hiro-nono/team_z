@@ -89,7 +89,7 @@ erDiagram
     ACCOUNT ||--|| ACCOUNT_STATUS_LOG : has
     ACCOUNT ||--|| GOOGLE_CALENDAR_CONNECTION : has
 
-    AUTH {
+    Auth {
         uuid id PK
         string email
         string password
