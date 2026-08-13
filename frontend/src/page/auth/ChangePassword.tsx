@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
-import { useAuthHooks } from '../hooks/auth';
+import { useAuthHooks } from '../../hooks/auth';
 
 const ChangePassword: React.FC = () => {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -44,7 +44,7 @@ const ChangePassword: React.FC = () => {
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
       <div className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-md space-y-8">
         <div className="text-center">
-          <h1 className="text-3xl font-bold !text-black">パスワード変更</h1>
+          <h1 className="text-3xl font-bold text-black!">パスワード変更</h1>
           <p className="text-gray-500 mt-2">現在のパスワードと新しいパスワードを入力してください</p>
         </div>
 
