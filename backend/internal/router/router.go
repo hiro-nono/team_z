@@ -17,8 +17,13 @@ type CSRFHandler interface {
 	IssueToken(c *gin.Context)
 }
 
+// GoogleCalendarConnectionHandler はrouterがGoogleカレンダー連携情報関連エンドポイントの登録に必要とするハンドラ群
+type GoogleCalendarConnectionHandler interface {
+	Create(c *gin.Context)
+}
+
 // NewRouter はアプリケーションの全エンドポイントを登録したgin.Engineを生成する
-func NewRouter(accountController AccountHandler, csrfController CSRFHandler) *gin.Engine {
+func NewRouter(accountController AccountHandler, csrfController CSRFHandler, googleCalendarConnectionController GoogleCalendarConnectionHandler) *gin.Engine {
 	engine := gin.Default()
 
 	engine.GET("/csrf-token", csrfController.IssueToken)
@@ -29,6 +34,11 @@ func NewRouter(accountController AccountHandler, csrfController CSRFHandler) *gi
 		accounts.GET("/:id", accountController.Get)
 		accounts.DELETE("/:id", accountController.Withdraw)
 		accounts.PATCH("/:id/status", accountController.ChangeStatus)
+	}
+
+	googleCalendarConnections := engine.Group("/google-calendar-connections")
+	{
+		googleCalendarConnections.POST("", googleCalendarConnectionController.Create)
 	}
 
 	return engine
