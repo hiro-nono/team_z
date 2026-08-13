@@ -7,7 +7,7 @@ import Signin from './page/auth/Signin.tsx'
 import Signup from './page/auth/Signup.tsx'
 import ChangePassword from './page/auth/ChangePassword.tsx'
 import ChangeEmail from './page/auth/ChangeEmail.tsx'
-import Mypage from './page/mypage/mypage.tsx'
+import Mypage from './page/mypage/MyPage.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
