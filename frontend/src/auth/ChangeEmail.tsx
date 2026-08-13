@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
+import { useAuthHooks } from '../hooks/auth';
 
 const ChangeEmail: React.FC = () => {
   const [newEmail, setNewEmail] = useState('');
@@ -10,12 +11,13 @@ const ChangeEmail: React.FC = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const handleEmailChange = (e: React.FormEvent) => {
+  const { updateEmail } = useAuthHooks();
+
+  const handleEmailChange = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
 
-    // 入力チェック
     if (!newEmail || !confirmEmail || !password) {
       setError('すべての項目を入力してください。');
       return;
@@ -32,25 +34,19 @@ const ChangeEmail: React.FC = () => {
       return;
     }
 
-    console.log('メールアドレス変更処理実行:', { newEmail, password });
-
-    // TODO: バックエンドAPI連携
+    await updateEmail(newEmail);
     setSuccess('確認用メールを送信しました。メール内のリンクから変更を完了してください。');
   };
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      {/* カードコンテナ */}
       <div className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-md space-y-8">
-        {/* タイトル */}
         <div className="text-center">
           <h1 className="text-3xl font-bold !text-black">メールアドレス変更</h1>
           <p className="text-gray-500 mt-2">新しいメールアドレスと現在のパスワードを入力してください</p>
         </div>
 
-        {/* フォーム */}
         <form onSubmit={handleEmailChange} className="space-y-6">
-          {/* 新しいメールアドレス */}
           <div>
             <label htmlFor="newEmail" className="block text-sm font-medium text-gray-700">
               新しいメールアドレス
@@ -69,7 +65,6 @@ const ChangeEmail: React.FC = () => {
             </div>
           </div>
 
-          {/* 新しいメールアドレス（確認） */}
           <div>
             <label htmlFor="confirmEmail" className="block text-sm font-medium text-gray-700">
               新しいメールアドレス（確認）
@@ -88,7 +83,6 @@ const ChangeEmail: React.FC = () => {
             </div>
           </div>
 
-          {/* 本人確認用パスワード */}
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700">
               現在のパスワード（本人確認）
@@ -115,21 +109,18 @@ const ChangeEmail: React.FC = () => {
             </div>
           </div>
 
-          {/* エラー表示 */}
           {error && (
             <div className="text-red-600 text-sm text-center bg-red-50 border border-red-200 rounded-md p-3">
               {error}
             </div>
           )}
 
-          {/* 成功表示 */}
           {success && (
             <div className="text-green-600 text-sm text-center bg-green-50 border border-green-200 rounded-md p-3">
               {success}
             </div>
           )}
 
-          {/* 送信ボタン */}
           <div>
             <button
               type="submit"
@@ -140,7 +131,6 @@ const ChangeEmail: React.FC = () => {
           </div>
         </form>
 
-        {/* 戻るリンク */}
         <div className="text-center border-t border-gray-200 pt-6">
           <Link
             to="/signin"

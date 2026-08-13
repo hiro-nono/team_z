@@ -1,22 +1,22 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
-import { useAuthHooks } from "../hooks/auth";
+import { useAuthHooks } from '../hooks/auth';
 
 const Signin: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
   const { signin } = useAuthHooks();
-  // TODO: ログイン成功時の画面遷移に使用
-  const navigate = useNavigate();
+  const location = useLocation();
+  const redirectTo = new URLSearchParams(location.search).get('redirectTo') ?? '/';
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    // 簡易バリデーション
     if (!email || !password) {
       setError('メールアドレスとパスワードを入力してください。');
       return;
@@ -28,25 +28,18 @@ const Signin: React.FC = () => {
       return;
     }
 
-    console.log('ログイン処理実行:', { email, password });
-    // TODO: バックエンドのAPI連携や画面遷移の処理をここに記述
-    signin(email,password,redirectTo);
-    // 例: navigate('/home');
+    signin(email, password, redirectTo);
   };
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      {/* ログインカード */}
       <div className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-md space-y-8">
-        {/* タイトル */}
         <div className="text-center">
           <h1 className="text-3xl font-bold !text-black">AIおたよりシステム</h1>
           <p className="text-gray-500 mt-2">メールアドレスとパスワードでログイン</p>
         </div>
 
-        {/* フォーム入力エリア */}
         <form onSubmit={handleLogin} className="space-y-6">
-          {/* メールアドレス入力 */}
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">
               メールアドレス
@@ -66,7 +59,6 @@ const Signin: React.FC = () => {
             </div>
           </div>
 
-          {/* パスワード入力 */}
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700">
               パスワード
@@ -83,7 +75,6 @@ const Signin: React.FC = () => {
                 className="appearance-none block w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 placeholder="パスワードを入力"
               />
-              {/* パスワード表示/非表示トグル */}
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
@@ -95,14 +86,12 @@ const Signin: React.FC = () => {
             </div>
           </div>
 
-          {/* エラーメッセージ表示エリア */}
           {error && (
             <div className="text-red-600 text-sm text-center bg-red-50 border border-red-200 rounded-md p-3">
               {error}
             </div>
           )}
 
-          {/* ログインボタン */}
           <div>
             <button
               type="submit"
@@ -113,7 +102,6 @@ const Signin: React.FC = () => {
           </div>
         </form>
 
-        {/* サインアップへのリンク */}
         <div className="text-center border-t border-gray-200 pt-6">
           <p className="text-sm text-gray-500">
             アカウントをお持ちでない方はこちら

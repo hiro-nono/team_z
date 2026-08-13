@@ -1,5 +1,8 @@
-// mutate
-// func
+import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../../supabase';
+import axios from 'axios';
+
 export const useAuthHooks = () => {
   const navigate = useNavigate();
   // クエリデータ
@@ -58,10 +61,7 @@ export const useAuthHooks = () => {
 
   // update_password
   const updatePassword = async (password: string) => {
-    const { error } = await supabase.auth.updateUser({ password :password });
-
-    // エラーハンドリング
-    switchSupabaseErrorHandling(error)
+    const { error } = await supabase.auth.updateUser({ password });
 
     if (error) {
       return;
@@ -84,29 +84,22 @@ export const useAuthHooks = () => {
     }
   };
 
-  // signout
   const signout = async () => {
     const { error } = await supabase.auth.signOut();
-    // すべてのキャッシュを削除
     queryClient.clear();
-
-    // エラーハンドリング
-    switchSupabaseErrorHandling(error)
 
     if (error) {
       return;
     }
 
-    // アクセストークンをヘッダーから削除
-    delete axios.defaults.headers.common["Authorization"];;
+    delete axios.defaults.headers.common['Authorization'];
   };
 
-  // 退会処理前のユーザー認証
-  const verifyPassword = async (email :string, password :string) :Promise<boolean> => {
+  const verifyPassword = async (email: string, password: string): Promise<boolean> => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (!error) {
-      return true
+      return true;
     }
 
     // エラーハンドリング
