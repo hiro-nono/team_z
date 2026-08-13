@@ -16,11 +16,12 @@ const (
 
 // アカウント情報
 type Account struct {
-	ID        uuid.UUID   `gorm:"type:uuid;primaryKey"`
-	AuthID    uuid.UUID   `gorm:"type:uuid;uniqueIndex;not null"` // 認証ID
-	Role      AccountRole `gorm:"type:varchar(20);not null"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID            uuid.UUID     `gorm:"type:uuid;primaryKey"`
+	AuthID        uuid.UUID     `gorm:"type:uuid;uniqueIndex;not null"` // 認証ID
+	Role          AccountRole   `gorm:"type:varchar(20);not null"`
+	AccountStatus AccountStatus `gorm:"type:varchar(20);not null"`
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 // アカウントステータス
@@ -38,7 +39,6 @@ const (
 type AccountEventType string
 
 const (
-	AccountEventCreated     AccountEventType = "CREATED"     // アカウント作成
 	AccountEventSuspended   AccountEventType = "SUSPENDED"   // 一時停止
 	AccountEventReactivated AccountEventType = "REACTIVATED" // 再有効化
 	AccountEventFrozen      AccountEventType = "FROZEN"      // 凍結
@@ -50,9 +50,10 @@ const (
 // アカウントステータス履歴
 // 状態を履歴として持つ
 type AccountStatusLog struct {
-	ID        uuid.UUID        `gorm:"type:uuid;primaryKey"`
-	AccountID uuid.UUID        `gorm:"type:uuid;not null;index"`
-	EventType AccountEventType `gorm:"type:varchar(20);not null"`
-	Status    AccountStatus    `gorm:"type:varchar(20);not null"`
-	CreatedAt time.Time
+	ID         uuid.UUID        `gorm:"type:uuid;primaryKey"`
+	AccountID  uuid.UUID        `gorm:"type:uuid;not null;index"`
+	EventType  AccountEventType `gorm:"type:varchar(20);not null"`
+	FromStatus AccountStatus    `gorm:"type:varchar(20)"`
+	ToStatus   AccountStatus    `gorm:"type:varchar(20);not null"`
+	CreatedAt  time.Time
 }

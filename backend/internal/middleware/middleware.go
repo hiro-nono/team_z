@@ -8,17 +8,22 @@ import (
 	"github.com/hiro-nono/team_z/backend/internal/auth"
 )
 
-type authMiddleware struct {
-	authService auth.IAuth
+// Authenticator はAuthMiddlewareがリクエストの認証に必要とする操作
+type Authenticator interface {
+	VerifyToken(token string) (*auth.AuthUser, error)
 }
 
-func NewAuthMiddleware(authService auth.IAuth) *authMiddleware {
-	return &authMiddleware{
+type AuthMiddleware struct {
+	authService Authenticator
+}
+
+func NewAuthMiddleware(authService Authenticator) *AuthMiddleware {
+	return &AuthMiddleware{
 		authService: authService,
 	}
 }
 
-func (am *authMiddleware) Handler() gin.HandlerFunc {
+func (am *AuthMiddleware) Handler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Authorization Header取得
 		token := c.GetHeader("Authorization")

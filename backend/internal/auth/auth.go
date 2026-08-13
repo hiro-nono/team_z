@@ -11,23 +11,20 @@ type AuthUser struct {
 	ID string
 }
 
-type IAuth interface {
-	VerifyToken(token string) (*AuthUser, error)
-}
-
-type authHandler struct {
+// AuthService はSupabase Authが発行したJWTの検証を行う
+type AuthService struct {
 	projectURL string
 	jwksURL    string
 }
 
-func NewAuthService(projectURL string) IAuth {
-	return &authHandler{
+func NewAuthService(projectURL string) *AuthService {
+	return &AuthService{
 		projectURL: projectURL,
 		jwksURL:    projectURL + "/auth/v1/.well-known/jwks.json",
 	}
 }
 
-func (ah *authHandler) VerifyToken(token string) (*AuthUser, error) {
+func (ah *AuthService) VerifyToken(token string) (*AuthUser, error) {
 	// JWT検証
 	parsedToken, err := jwt.Parse(
 		token,

@@ -85,6 +85,9 @@ Supabase より提供されるAPIをつかって、PostgreSQLをしようしま�
 
 ```mermaid
 erDiagram
+    AUTH ||--|| ACCOUNT : has
+    ACCOUNT ||--|| ACCOUNT_STATUS_LOG : has
+    ACCOUNT ||--|| GOOGLE_CALENDAR_CONNECTION : has
 
     Auth {
         uuid id PK
@@ -94,7 +97,7 @@ erDiagram
 
     ACCOUNT {
         uuid id PK
-        uuid auth_id
+        uuid auth_id FK
         string role
         string status
         datetime created_at
@@ -109,7 +112,7 @@ erDiagram
         datetime created_at
     }
 
-    OAUTH {
+    GOOGLE_CALENDAR_CONNECTION {
         uuid id PK
         uuid account_id FK
         string provider
