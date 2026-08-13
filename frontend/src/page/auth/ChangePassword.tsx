@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
+import { useAuthHooks } from '../../hooks/auth';
 
 const ChangePassword: React.FC = () => {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -9,17 +10,17 @@ const ChangePassword: React.FC = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // 各パスワード入力欄の表示/非表示切り替え用ステート
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const handlePasswordChange = (e: React.FormEvent) => {
+  const { updatePassword } = useAuthHooks();
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
 
-    // バリデーション処理
     if (!currentPassword || !newPassword || !confirmPassword) {
       setError('すべての項目を入力してください。');
       return;
@@ -35,25 +36,19 @@ const ChangePassword: React.FC = () => {
       return;
     }
 
-    console.log('パスワード変更処理実行:', { currentPassword, newPassword });
-    
-    // TODO: バックエンドAPI連携（パスワード変更処理）
+    await updatePassword(newPassword);
     setSuccess('パスワードが正常に変更されました。');
   };
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      {/* カードコンテナ */}
       <div className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-md space-y-8">
-        {/* タイトル */}
         <div className="text-center">
-          <h1 className="text-3xl font-bold !text-black">パスワード変更</h1>
+          <h1 className="text-3xl font-bold text-black!">パスワード変更</h1>
           <p className="text-gray-500 mt-2">現在のパスワードと新しいパスワードを入力してください</p>
         </div>
 
-        {/* フォームエリア */}
         <form onSubmit={handlePasswordChange} className="space-y-6">
-          {/* 現在のパスワード */}
           <div>
             <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700">
               現在のパスワード
@@ -80,7 +75,6 @@ const ChangePassword: React.FC = () => {
             </div>
           </div>
 
-          {/* 新しいパスワード */}
           <div>
             <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700">
               新しいパスワード（8文字以上）
@@ -107,7 +101,6 @@ const ChangePassword: React.FC = () => {
             </div>
           </div>
 
-          {/* 新しいパスワード（確認） */}
           <div>
             <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
               新しいパスワード（確認）
@@ -134,21 +127,18 @@ const ChangePassword: React.FC = () => {
             </div>
           </div>
 
-          {/* エラーメッセージ */}
           {error && (
             <div className="text-red-600 text-sm text-center bg-red-50 border border-red-200 rounded-md p-3">
               {error}
             </div>
           )}
 
-          {/* 成功メッセージ */}
           {success && (
             <div className="text-green-600 text-sm text-center bg-green-50 border border-green-200 rounded-md p-3">
               {success}
             </div>
           )}
 
-          {/* 送信ボタン */}
           <div>
             <button
               type="submit"
@@ -159,7 +149,6 @@ const ChangePassword: React.FC = () => {
           </div>
         </form>
 
-        {/* 戻るリンク */}
         <div className="text-center border-t border-gray-200 pt-6">
           <Link
             to="/signin"

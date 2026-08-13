@@ -3,10 +3,11 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
-import Signup from './auth/Signup.tsx'
-import Signin from './auth/Signin.tsx'
-import ChangePassword from './auth/ChangePassword.tsx'
-import ChangeEmail from './auth/ChangeEmail.tsx'
+import Signin from './page/auth/Signin.tsx'
+import Signup from './page/auth/Signup.tsx'
+import ChangePassword from './page/auth/ChangePassword.tsx'
+import ChangeEmail from './page/auth/ChangeEmail.tsx'
+import Mypage from './page/mypage/mypage.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -17,6 +18,7 @@ createRoot(document.getElementById('root')!).render(
         <Route path="/signin" element={<Signin />} />
         <Route path="/change-password" element={<ChangePassword/>} />
         <Route path="/change-email" element={<ChangeEmail/>} />      
+        <Route path="/mypage" element={<Mypage/>} />     
       </Routes>
     </BrowserRouter>
   </StrictMode>,
