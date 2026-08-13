@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
+import { useAuthHooks } from "../hooks/auth";
 
 const Signin: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const { signin } = useAuthHooks();
   // TODO: ログイン成功時の画面遷移に使用
-  // const navigate = useNavigate();
+  const navigate = useNavigate();
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,6 +30,7 @@ const Signin: React.FC = () => {
 
     console.log('ログイン処理実行:', { email, password });
     // TODO: バックエンドのAPI連携や画面遷移の処理をここに記述
+    signin(email,password,redirectTo);
     // 例: navigate('/home');
   };
 
