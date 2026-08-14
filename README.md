@@ -273,17 +273,3 @@ npm run build
 16. fingerprintによる重複登録防止
 17. access token refreshとrefresh token保持
 18. AccountIDヘッダーの401/400、parameterized query、DBエラー、Token非漏えい
-
-## PostgreSQL
-
-ローカルPostgreSQLを使う場合はDocker Composeで起動できます。Supabaseを使う場合は`DATABASE_URL`へ接続文字列を設定してください。
-
-```bash
-docker compose --env-file .env.dev up -d
-```
-
-停止する場合は以下を実行します。
-
-```bash
-docker compose down
-```
