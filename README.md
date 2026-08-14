@@ -26,8 +26,8 @@ main
 - API: Node.js標準HTTPサーバー
 - AI: OpenAI SDK Responses API（既定はOrcaRouter、OpenAI directへ切替可能。APIキーはBackendのみで利用）
 - Google連携: 公式 `googleapis` Node.jsクライアント、OAuth 2.0 server-side web application
-- Token保存: `GoogleTokenStore`抽象に相当するIn-memory実装（開発用）
-- PostgreSQL: 将来の履歴保存用。現在のMVPでは使用しない
+- Token保存: Supabase PostgreSQLの`google_calendar_connections`をBackendから直接参照・更新（OAuth stateはIn-memory）
+- PostgreSQL: `DATABASE_URL`で接続。Google Calendar OAuth接続情報を保存し、将来の履歴保存にも利用
 
 ### OrcaRouter / OpenAI direct切替
 
@@ -136,9 +136,14 @@ source evidenceに「上旬」「頃」「来週」などが含まれる場合�
 - `GET /api/google/auth/start`: stateを生成・保存し、認可URLだけを返す
 - `GET /api/google/auth/callback`: stateを検証してcodeをtokenへ交換し、tokenをBackendだけに保存
 - `GET /api/google/status`: Frontend向けに接続済みかどうかだけを返す
+- `GET /api/google/connection/status`: `X-Account-ID`に紐づく接続状態だけを返す
 - `POST /api/calendar/events`: candidateを再検証・再判定してGoogle Calendarへ登録
 
 OAuth scopeは `https://www.googleapis.com/auth/calendar.events` のみです。`access_type: offline` を使用し、access tokenの期限が近い場合はrefresh tokenでBackendが自動更新します。refresh tokenが再認証時に返らない場合は、既存refresh tokenを保持します。
+
+Backendは認証境界から渡される`X-Account-ID`ヘッダーをAccountIDとして取得します。featureブランチ内には既存の認証middlewareやTanStack Query導入がないため、現段階ではこのヘッダーを信頼できる認証層から付与する前提です。Frontend request bodyの`account_id`は受け付けず、AccountIDはUUID形式だけを許可します。
+
+OAuth接続情報は`DATABASE_URL`で接続したPostgreSQLからAccountIDをキーに取得します。Supabase JS SDKは使わず、Node.jsの`pg`でparameterized queryを実行します。接続状態APIのレスポンスには`connected`だけを含め、access token・refresh token・client secretは返しません。
 
 Calendarイベントの変換は以下です。
 
@@ -154,9 +159,9 @@ Calendarイベントの変換は以下です。
 
 ### Token保存と開発上の注意
 
-現在は`InMemoryGoogleTokenStore`を使っています。access token、refresh token、client secretはFrontendへ返さず、ログにも出力しません。
+OAuth tokenは`google_calendar_connections`テーブルへ保存します。`InMemoryOAuthStateStore`はOAuth callbackのstate一時保存だけに使います。access token、refresh token、client secretはFrontendへ返さず、ログにも出力しません。
 
-これは開発用実装のため、**server再起動でOAuth接続が消えます**。本番化する際は、次のような永続化層へ置き換えます。
+DB接続が未設定の場合、OAuth接続状態・Calendar登録は503で停止します。OAuth接続情報を保存するテーブルは既存Supabase側に用意する前提で、Backendはmigrationを実行しません。
 
 ```text
 Account
@@ -180,6 +185,7 @@ MVPでは最小scopeを使うためGoogle user IDを取得せず、`provider_use
 - npm
 - OrcaRouter APIキー（または切り分け用のOpenAI APIキー）
 - Google CloudプロジェクトのOAuth Web Client ID／Secret
+- Supabase PostgreSQLの`DATABASE_URL`
 
 ### 起動方法
 
@@ -197,7 +203,7 @@ cd ..
 cp backend/.env.example backend/.env
 ```
 
-`backend/.env` に `AI_PROVIDER`、`AI_BASE_URL`、`AI_API_KEY`、`AI_MODEL`、`GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET`を設定してください。実際のsecretをGitへコミットしないでください。
+`backend/.env` に `AI_PROVIDER`、`AI_BASE_URL`、`AI_API_KEY`、`AI_MODEL`、`DATABASE_URL`、`GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET`を設定してください。実際のsecretをGitへコミットしないでください。
 
 3. Backendを起動します。
 
@@ -266,10 +272,11 @@ npm run build
 15. BLOCKEDの常時拒否
 16. fingerprintによる重複登録防止
 17. access token refreshとrefresh token保持
+18. AccountIDヘッダーの401/400、parameterized query、DBエラー、Token非漏えい
 
 ## PostgreSQL
 
-将来の履歴保存用にDocker ComposeでPostgreSQLを起動できます。現在のMVPではDBを使用しません。
+ローカルPostgreSQLを使う場合はDocker Composeで起動できます。Supabaseを使う場合は`DATABASE_URL`へ接続文字列を設定してください。
 
 ```bash
 docker compose --env-file .env.dev up -d
