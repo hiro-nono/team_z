@@ -69,7 +69,7 @@ func main() {
 
 	engine := router.NewRouter(accountController, csrfController, googleCalendarConnectionController, authMiddleware)
 
-	if err := engine.Run(); err != nil {
+	if err := engine.Run(":" + cfg.Port); err != nil {
 		log.Fatalf("failed to start server: %v", err)
 	}
 }
