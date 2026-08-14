@@ -237,7 +237,7 @@ function CandidateCard({
   )
 }
 
-function PDFCarendar() {
+function PDFCalendar() {
   const [file, setFile] = useState<File | null>(null)
   const [result, setResult] = useState<SchoolNotice | null>(null)
   const [error, setError] = useState('')
@@ -526,4 +526,4 @@ function PDFCarendar() {
   )
 }
 
-export default PDFCarendar
+export default PDFCalendar

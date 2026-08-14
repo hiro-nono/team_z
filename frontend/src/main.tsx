@@ -12,6 +12,7 @@ import RequestResetPasswordForm from './page/auth/RequestResetPasswordForm.tsx'
 import VerifyEmailForm from './page/auth/VerifyEmailForm.tsx'
 import Mypage from './page/mypage/MyPage.tsx'
 import NotFound from './page/NotFound.tsx'
+import PDFCalendar from './page/calendar/PDFCarendar.tsx'
 
 const queryClient = new QueryClient()
 
@@ -28,6 +29,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/change-password" element={<ChangePassword/>} />
           <Route path="/change-email" element={<ChangeEmail/>} />
           <Route path="/mypage" element={<Mypage/>} />
+          <Route path="/pdf-calendar" element={<PDFCalendar/>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
