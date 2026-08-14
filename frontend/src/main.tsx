@@ -8,7 +8,10 @@ import Signin from './page/auth/Signin.tsx'
 import Signup from './page/auth/Signup.tsx'
 import ChangePassword from './page/auth/ChangePassword.tsx'
 import ChangeEmail from './page/auth/ChangeEmail.tsx'
+import RequestResetPasswordForm from './page/auth/RequestResetPasswordForm.tsx'
+import VerifyEmailForm from './page/auth/VerifyEmailForm.tsx'
 import Mypage from './page/mypage/MyPage.tsx'
+import NotFound from './page/NotFound.tsx'
 
 const queryClient = new QueryClient()
 
@@ -20,9 +23,12 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/" element={<App />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/signin" element={<Signin />} />
+          <Route path="/forgot-password" element={<RequestResetPasswordForm />} />
+          <Route path="/verify-email" element={<VerifyEmailForm />} />
           <Route path="/change-password" element={<ChangePassword/>} />
           <Route path="/change-email" element={<ChangeEmail/>} />
           <Route path="/mypage" element={<Mypage/>} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>

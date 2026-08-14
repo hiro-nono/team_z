@@ -92,6 +92,15 @@ const Signin: React.FC = () => {
             </div>
           )}
 
+          <div className="text-right">
+            <Link
+              to="/forgot-password"
+              className="text-sm font-medium text-blue-600 hover:text-blue-500"
+            >
+              パスワードをお忘れですか？
+            </Link>
+          </div>
+
           <div>
             <button
               type="submit"

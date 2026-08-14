@@ -25,6 +25,15 @@ const MyPage = () => {
         <ul className="border border-gray-300 rounded-md divide-y divide-gray-200 overflow-hidden">
           <li>
             <Link
+              to="/"
+              className="flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 transition-colors"
+            >
+              ホームへ戻る
+              <FaChevronRight className="h-4 w-4 text-gray-400" />
+            </Link>
+          </li>
+          <li>
+            <Link
               to="/change-email"
               className="flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 transition-colors"
             >
