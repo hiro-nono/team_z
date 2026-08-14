@@ -1,5 +1,4 @@
 import { type ChangeEvent, type DragEvent, useEffect, useState } from 'react'
-import './App.css'
 
 type ActionDecision = 'AUTO_CREATE' | 'CONFIRM_REQUIRED' | 'BLOCKED'
 type CandidateKind = 'event' | 'deadline'
