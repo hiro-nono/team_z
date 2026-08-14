@@ -11,7 +11,6 @@ import ChangeEmail from './page/auth/ChangeEmail.tsx'
 import RequestResetPasswordForm from './page/auth/RequestResetPasswordForm.tsx'
 import VerifyEmailForm from './page/auth/VerifyEmailForm.tsx'
 import Mypage from './page/mypage/MyPage.tsx'
-import LandingPage from './page/lp/LandingPage.tsx'
 import NotFound from './page/NotFound.tsx'
 
 const queryClient = new QueryClient()
