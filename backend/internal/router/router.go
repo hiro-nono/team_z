@@ -22,21 +22,32 @@ type GoogleCalendarConnectionHandler interface {
 	Create(c *gin.Context)
 }
 
+// AuthMiddleware はrouterが認証必須エンドポイントの保護に必要とするミドルウェア
+type AuthMiddleware interface {
+	Handler() gin.HandlerFunc
+}
+
 // NewRouter はアプリケーションの全エンドポイントを登録したgin.Engineを生成する
-func NewRouter(accountController AccountHandler, csrfController CSRFHandler, googleCalendarConnectionController GoogleCalendarConnectionHandler) *gin.Engine {
+func NewRouter(accountController AccountHandler, csrfController CSRFHandler, googleCalendarConnectionController GoogleCalendarConnectionHandler, authMiddleware AuthMiddleware) *gin.Engine {
 	engine := gin.Default()
 
 	engine.GET("/csrf-token", csrfController.IssueToken)
 
+	// アカウント作成はSupabaseサインアップ直後、まだ本人のアカウントが存在しない段階で呼ばれるため認証不要
 	accounts := engine.Group("/accounts")
 	{
 		accounts.POST("", accountController.Create)
-		accounts.GET("/:id", accountController.Get)
-		accounts.DELETE("/:id", accountController.Withdraw)
-		accounts.PATCH("/:id/status", accountController.ChangeStatus)
 	}
 
-	googleCalendarConnections := engine.Group("/google-calendar-connections")
+	// 既存アカウントを操作するエンドポイントは認証必須
+	accountsAuthed := engine.Group("/accounts", authMiddleware.Handler())
+	{
+		accountsAuthed.GET("/:id", accountController.Get)
+		accountsAuthed.DELETE("/:id", accountController.Withdraw)
+		accountsAuthed.PATCH("/:id/status", accountController.ChangeStatus)
+	}
+
+	googleCalendarConnections := engine.Group("/google-calendar-connections", authMiddleware.Handler())
 	{
 		googleCalendarConnections.POST("", googleCalendarConnectionController.Create)
 	}

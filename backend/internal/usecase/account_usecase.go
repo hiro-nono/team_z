@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/hiro-nono/team_z/backend/internal/model"
@@ -23,6 +24,7 @@ type AccountRepository interface {
 	Create(ctx context.Context, account *model.Account) error
 	FindByID(ctx context.Context, id uuid.UUID) (*model.Account, error)
 	UpdateStatus(ctx context.Context, id uuid.UUID, status model.AccountStatus) error
+	UpdateWithdrawScheduledAt(ctx context.Context, id uuid.UUID, scheduledAt *time.Time) error
 }
 
 // AccountStatusLogRepository はaccountUsecaseがステータス変更履歴の記録に必要とする操作
@@ -73,14 +75,21 @@ func (u *AccountUsecase) GetAccount(ctx context.Context, id uuid.UUID) (*model.A
 	return u.accountRepository.FindByID(ctx, id)
 }
 
+// WithdrawAccount はAccountを退会状態にし、退会から1か月後をデータ削除予定日時として設定する
+// 実際のデータ削除は削除予定日時経過後に定期実行Job(AccountDeletionUsecase)が行う
 func (u *AccountUsecase) WithdrawAccount(ctx context.Context, id uuid.UUID) error {
 	account, err := u.accountRepository.FindByID(ctx, id)
 	if err != nil {
 		return err
 	}
 
+	scheduledAt := time.Now().AddDate(0, 1, 0)
+
 	return u.transactionManager.Do(ctx, func(ctx context.Context) error {
 		if err := u.accountRepository.UpdateStatus(ctx, id, model.AccountStatusWithdrawn); err != nil {
+			return err
+		}
+		if err := u.accountRepository.UpdateWithdrawScheduledAt(ctx, id, &scheduledAt); err != nil {
 			return err
 		}
 		return u.accountStatusLogRepository.Create(ctx, &model.AccountStatusLog{
