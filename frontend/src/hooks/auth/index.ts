@@ -73,6 +73,9 @@ export const useAuthHooks = () => {
     // エラーハンドリング
     switchSupabaseErrorHandling(error)
 
+    console.log('signup data:', data);
+console.error('signup error:', error);
+
     if (error || !data.user) {
       return;
     }
@@ -87,6 +90,8 @@ export const useAuthHooks = () => {
     } catch {
       toast.error('アカウント情報の作成に失敗しました。');
     }
+
+    navigate('/verify-email', { state: { email } });
   };
 
   // sessionの保存(=>自動ログインに利用)
@@ -105,6 +110,7 @@ export const useAuthHooks = () => {
     switchSupabaseErrorHandling(error)
 
     if (error) {
+      console.error('ログインに失敗しました。', error);
       return;
     }
 
@@ -124,16 +130,22 @@ export const useAuthHooks = () => {
   };
 
   // update_password
-  const updatePassword = async (password: string) => {
+  const updatePassword = async (password: string): Promise<boolean> => {
     const { error } = await supabase.auth.updateUser({ password });
 
+    // エラーハンドリング
+    switchSupabaseErrorHandling(error)
+
     if (error) {
-      return;
+      return false;
     }
+
+    navigate('/mypage');
+    return true;
   };
 
   // update_email
-  const updateEmail = async (email: string) => {
+  const updateEmail = async (email: string): Promise<boolean> => {
     const { error } = await supabase.auth.updateUser({
       email :email,
     }, {
@@ -144,8 +156,11 @@ export const useAuthHooks = () => {
     switchSupabaseErrorHandling(error)
 
     if (error) {
-      return;
+      return false;
     }
+
+    navigate('/verify-email', { state: { email } });
+    return true;
   };
 
   const signout = async () => {

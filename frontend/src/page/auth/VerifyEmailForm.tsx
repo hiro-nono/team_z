@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { FaPaperPlane } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { supabase } from '../../supabase';
@@ -56,15 +56,6 @@ const VerifyEmailForm: React.FC = () => {
           <p className="text-xs text-gray-400 text-center">
             届かない場合は、迷惑メールフォルダもご確認ください。
           </p>
-        </div>
-
-        <div className="text-center border-t border-gray-200 pt-6">
-          <Link
-            to="/signin"
-            className="text-sm font-medium text-blue-600 hover:text-blue-500"
-          >
-            ← ログイン画面に戻る
-          </Link>
         </div>
       </div>
     </div>

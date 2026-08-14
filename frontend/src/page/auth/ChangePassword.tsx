@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import { useAuthHooks } from '../../hooks/auth';
 
@@ -8,7 +7,6 @@ const ChangePassword: React.FC = () => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
 
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -19,7 +17,6 @@ const ChangePassword: React.FC = () => {
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setSuccess('');
 
     if (!currentPassword || !newPassword || !confirmPassword) {
       setError('すべての項目を入力してください。');
@@ -37,7 +34,6 @@ const ChangePassword: React.FC = () => {
     }
 
     await updatePassword(newPassword);
-    setSuccess('パスワードが正常に変更されました。');
   };
 
   return (
@@ -133,30 +129,15 @@ const ChangePassword: React.FC = () => {
             </div>
           )}
 
-          {success && (
-            <div className="text-green-600 text-sm text-center bg-green-50 border border-green-200 rounded-md p-3">
-              {success}
-            </div>
-          )}
-
           <div>
             <button
               type="submit"
               className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
             >
-              パスワードを変更する
+              保存する
             </button>
           </div>
         </form>
-
-        <div className="text-center border-t border-gray-200 pt-6">
-          <Link
-            to="/signin"
-            className="text-sm font-medium text-blue-600 hover:text-blue-500"
-          >
-            ← ログイン画面に戻る
-          </Link>
-        </div>
       </div>
     </div>
   );
