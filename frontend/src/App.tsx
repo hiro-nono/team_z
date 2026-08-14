@@ -1,4 +1,3 @@
-import './App.css'
 import { useCSRFTokenQuery } from './hooks/useCsrfTokenQuery'
 
 function App() {

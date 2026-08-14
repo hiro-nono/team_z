@@ -16,12 +16,17 @@ import (
 	"github.com/hiro-nono/team_z/backend/internal/repository"
 	"github.com/hiro-nono/team_z/backend/internal/router"
 	"github.com/hiro-nono/team_z/backend/internal/usecase"
+	"github.com/joho/godotenv"
 )
 
 // accountDeletionJobInterval は退会済みAccountの削除Jobを実行する間隔
 const accountDeletionJobInterval = 1 * time.Hour
 
 func main() {
+	if err := godotenv.Load(".env"); err != nil {
+		log.Fatal("failed to load .env:", err)
+	}
+
 	cfg := config.Load()
 
 	database, err := db.NewDB(cfg)
