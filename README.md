@@ -40,7 +40,6 @@ git push
 ※ PRは確認後に`dev`へマージすること
 
 ## 開発環境
-開発環境では、Docker Composeを使用してPostgreSQLを起動します。
 
 FrontendとBackendはローカル環境で起動します。
 

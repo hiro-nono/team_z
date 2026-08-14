@@ -1,14 +1,15 @@
+import axios from "axios";
+import type { CsrfTokenType } from "../type";
+import { supabase } from "../supabase";
+
 export const useError = () => {
     //csrfの取得
     const getCsrfToken = async () => {
         const { data } = await axios.get<CsrfTokenType>(
-            `${process.env.REACT_APP_API_URL}/csrf`
+            `${import.meta.env.VITE_API_URL}/csrf-token`
         )
         axios.defaults.headers.common["X-CSRF-Token"] = data.csrf_token
     };
-
-    // ログインのグローバル管理
-    const { setIsSignin } = useAccountStore()
 
     //エラー
     const switchErrorHandling = async (status: number | undefined, msg: string) => {
@@ -21,13 +22,13 @@ export const useError = () => {
                 // ログアウト
                 await supabase.auth.signOut();
                 // ホームへ
-                window.location.href = URLS.HOME
+                window.location.href = "/"
                 return
             case "admin privileges are required to perform this action":
                 // ログアウト
                 await supabase.auth.signOut();
                 // ホームへ
-                window.location.href = URLS.HOME
+                window.location.href = "/"
                 return
         }
         switch (status) {

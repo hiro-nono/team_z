@@ -16,12 +16,13 @@ const (
 
 // アカウント情報
 type Account struct {
-	ID            uuid.UUID     `gorm:"type:uuid;primaryKey"`
-	AuthID        uuid.UUID     `gorm:"type:uuid;uniqueIndex;not null"` // 認証ID
-	Role          AccountRole   `gorm:"type:varchar(20);not null"`
-	AccountStatus AccountStatus `gorm:"type:varchar(20);not null"`
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID                  uuid.UUID     `json:"id" gorm:"type:uuid;primaryKey"`
+	AuthID              uuid.UUID     `json:"auth_id" gorm:"type:uuid;uniqueIndex;not null"` // 認証ID
+	Role                AccountRole   `json:"role" gorm:"type:varchar(20);not null"`
+	AccountStatus       AccountStatus `json:"account_status" gorm:"type:varchar(20);not null"`
+	WithdrawScheduledAt *time.Time    `json:"withdraw_scheduled_at,omitempty" gorm:"index"` // 退会に伴うデータ削除予定日時
+	CreatedAt           time.Time     `json:"created_at"`
+	UpdatedAt           time.Time     `json:"updated_at"`
 }
 
 // アカウントステータス

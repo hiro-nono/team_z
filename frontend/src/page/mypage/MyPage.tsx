@@ -5,11 +5,11 @@ import { useAuthHooks } from '../../hooks/auth';
 
 const MyPage = () => {
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
-  const { signout } = useAuthHooks();
+  const { withdrawAccount } = useAuthHooks();
   const navigate = useNavigate();
 
   const handleWithdraw = async () => {
-    await signout();
+    await withdrawAccount();
     setIsWithdrawModalOpen(false);
     navigate('/signin');
   };

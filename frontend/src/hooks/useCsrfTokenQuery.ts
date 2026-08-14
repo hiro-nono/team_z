@@ -1,12 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
-import type { CsrfTokenType } from "../types/accountType";
 import { privateApi, publicApi } from "../axios";
+import type { CsrfTokenType } from "../type";
 
 // query
 // url
 const fetchToken = async (): Promise<CsrfTokenType> => {
-  const response = await axios.get(`${import.meta.env.VITE_API_URL}/csrf`, {
+  const response = await axios.get<CsrfTokenType>(`${import.meta.env.VITE_API_URL}/csrf-token`, {
     withCredentials: true,
   });
 
@@ -18,7 +18,7 @@ const fetchToken = async (): Promise<CsrfTokenType> => {
   privateApi.defaults.withCredentials = true;
   privateApi.defaults.headers.common['X-CSRF-Token'] = token;
 
-  return token;
+  return response.data;
 }
 // func
 export const useCSRFTokenQuery =  () => useQuery<CsrfTokenType, Error, CsrfTokenType, ["csrf_token"]>({
