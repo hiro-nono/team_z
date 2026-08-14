@@ -2,6 +2,8 @@
 
 本プロジェクトでは、`main` ブランチで直接開発を行わない。
 
+### ブランチ構成
+
 ```text
 main
  └── dev
@@ -10,24 +12,123 @@ main
       └── feature/zzz
 ```
 
-1. `dev` を最新化する
-2. `dev` から `feature/<機能名>` を作成する
-3. featureブランチで開発・コミットする
-4. featureブランチをPushする
-5. GitHubで `feature/*` から `dev` へのPull Requestを作成する
+### 基本フロー
+
+1. dev を最新化する
+```
+git checkout dev
+git pull origin dev
+```
+
+2. dev から feature ブランチを作成する
+```
+git checkout -b feature/<機能名>
+```
+
+3. feature ブランチで開発する
+```
+git add .
+git commit -m "変更内容"
+```
+
+4. feature ブランチをPushする
+```
+git push
+```
+
+5. GitHubで feature/* → dev のPull Requestを作成する
+※ PRは確認後に`dev`へマージすること
+
+## 必要な環境
+
+- Bun
+- Node.js 20.6以上
+- Go
+- npm
+- OrcaRouter APIキー（または切り分け用のOpenAI APIキー）
+- Google CloudプロジェクトのOAuth Web Client ID／Secret
+- Supabase PostgreSQLの`DATABASE_URL`
+
+## 技術構成
+
+- Frontend: Bun + React + TypeScript + Vite + Tailwind CSS
+- Account/Authバックエンド: Go + Gin（Supabase Authとの連携、CSRF対策、退会アカウントのデータ定期削除Jobなど）
+- PDF/AI連携バックエンド: Node.js標準HTTPサーバー（`backend/server.mjs`）
+  - AI: OpenAI SDK Responses API（既定はOrcaRouter、OpenAI directへ切替可能。APIキーはBackendのみで利用）
+  - Google連携: 公式`googleapis` Node.jsクライアント、OAuth 2.0 server-side web application
+- DB: Supabase PostgreSQL。`DATABASE_URL`で接続し、Google Calendar OAuth接続情報などを保存（テーブル定義は「ER図」を参照）
+
+## 起動方法
+
+1. Backendの依存関係をインストールします。
+
+```bash
+cd backend
+go mod download
+npm install
+cd ..
+```
+
+2. Frontendの依存関係をインストールします。
+
+```bash
+cd frontend
+bun install
+cd ..
+```
+
+3. 環境変数ファイルを作成します。
+
+```bash
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+```
+
+各項目は`backend/.env.example` / `frontend/.env.example`を参照して設定してください。実際のsecretをGitへコミットしないでください。
+
+4. Account/Auth Backend（Go）を起動します。
+
+```bash
+cd backend
+go run ./cmd/server
+```
+
+5. 別ターミナルでPDF/AI連携Backend（Node.js）を起動します。
+
+```bash
+cd backend
+npm run dev
+```
+
+6. 別ターミナルでFrontendを起動します。
+
+```bash
+cd frontend
+bun run dev
+```
+
+ブラウザで http://localhost:5173 を開きます。Frontendの`/api`リクエストはVite proxy経由で http://localhost:3001 のNode.js Backendへ送信されます。
+
+## Google Cloud Consoleでの手動設定
+
+ローカルでOAuthを動かすには、次を一度設定します。
+
+1. Google Cloud Consoleでプロジェクトを作成または選択する
+2. **Google Calendar API**を有効化する
+3. OAuth consent screenを設定する。Externalの場合は自分のGoogleアカウントをTest userへ追加する
+4. CredentialsからOAuth Client IDを作成し、Application typeを**Web application**にする
+5. Authorized redirect URIに次を完全一致で追加する
+
+   `http://localhost:3001/api/google/auth/callback`
+
+6. 発行されたClient IDとClient Secretを`backend/.env`へ設定する
+7. `.env`の`GOOGLE_REDIRECT_URI`とConsoleのredirect URIが一致していることを確認する
+
+Redirect URIが1文字でも異なる場合、Googleは`redirect_uri_mismatch`を返します。
 
 ## MVP: PDF → AI抽出 → Action Decision → Google Calendar
 
 保護者がPDFをアップロードすると、サーバー側のAIが複数の行事・提出期限を抽出します。Backendがschema validationと決定論的なAction Decisionを行い、Google OAuth済みの場合だけ予定候補をGoogle Calendarへ登録できます。
-
-### 構成
-
-- Frontend: React + TypeScript + Vite + Tailwind CSS
-- API: Node.js標準HTTPサーバー
-- AI: OpenAI SDK Responses API（既定はOrcaRouter、OpenAI directへ切替可能。APIキーはBackendのみで利用）
-- Google連携: 公式 `googleapis` Node.jsクライアント、OAuth 2.0 server-side web application
-- Token保存: Supabase PostgreSQLの`google_calendar_connections`をBackendから直接参照・更新（OAuth stateはIn-memory）
-- PostgreSQL: `DATABASE_URL`で接続。Google Calendar OAuth接続情報を保存し、将来の履歴保存にも利用
 
 ### OrcaRouter / OpenAI direct切替
 
@@ -163,83 +264,53 @@ OAuth tokenは`google_calendar_connections`テーブルへ保存します。`InM
 
 DB接続が未設定の場合、OAuth接続状態・Calendar登録は503で停止します。OAuth接続情報を保存するテーブルは既存Supabase側に用意する前提で、Backendはmigrationを実行しません。
 
-```text
-Account
-- id
+テーブル定義は本READMEの「ER図」を参照してください。MVPでは最小scopeを使うためGoogle user IDを取得せず、`GOOGLE_CALENDAR_CONNECTION.provider_id`はnullを許容しています。
 
-GoogleCalendarConnection
-- id
-- account_id
-- provider_user_id
-- access_token
-- refresh_token
-- expires_at
-- scopes
+## ER図
+
+```mermaid
+erDiagram
+    AUTH ||--|| ACCOUNT : has
+    ACCOUNT ||--|| ACCOUNT_STATUS_LOG : has
+    ACCOUNT ||--|| GOOGLE_CALENDAR_CONNECTION : has
+
+    Auth {
+        uuid id PK
+        string email
+        string password
+    }
+
+    ACCOUNT {
+        uuid id PK
+        uuid auth_id FK
+        string role
+        string status
+        datetime created_at
+        datetime updated_at
+    }
+
+    ACCOUNT_STATUS_LOG {
+        uuid id PK
+        uuid account_id FK
+        string event_type
+        string status
+        datetime created_at
+    }
+
+    GOOGLE_CALENDAR_CONNECTION {
+        uuid id PK
+        uuid account_id FK
+        string provider
+        string provider_id
+        string access_token
+        string refresh_token
+        string expired_at
+        datetime created_at
+        datetime updated_at
+    }
 ```
 
-MVPでは最小scopeを使うためGoogle user IDを取得せず、`provider_user_id`はnullを許容しています。
-
-### 必要な環境
-
-- Node.js 20.6以上
-- npm
-- OrcaRouter APIキー（または切り分け用のOpenAI APIキー）
-- Google CloudプロジェクトのOAuth Web Client ID／Secret
-- Supabase PostgreSQLの`DATABASE_URL`
-
-### 起動方法
-
-1. Backendの依存関係をインストールします。
-
-```bash
-cd backend
-npm install
-cd ..
-```
-
-2. 環境変数ファイルを作成します。
-
-```bash
-cp backend/.env.example backend/.env
-```
-
-`backend/.env` に `AI_PROVIDER`、`AI_BASE_URL`、`AI_API_KEY`、`AI_MODEL`、`DATABASE_URL`、`GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET`を設定してください。実際のsecretをGitへコミットしないでください。
-
-3. Backendを起動します。
-
-```bash
-cd backend
-npm run dev
-```
-
-4. 別ターミナルでFrontendを起動します。
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-ブラウザで http://localhost:5173 を開きます。Frontendの`/api`リクエストはVite proxy経由で http://localhost:3001 のBackendへ送信されます。
-
-### Google Cloud Consoleでの手動設定
-
-ローカルでOAuthを動かすには、次を一度設定します。
-
-1. Google Cloud Consoleでプロジェクトを作成または選択する
-2. **Google Calendar API**を有効化する
-3. OAuth consent screenを設定する。Externalの場合は自分のGoogleアカウントをTest userへ追加する
-4. CredentialsからOAuth Client IDを作成し、Application typeを**Web application**にする
-5. Authorized redirect URIに次を完全一致で追加する
-
-   `http://localhost:3001/api/google/auth/callback`
-
-6. 発行されたClient IDとClient Secretを`backend/.env`へ設定する
-7. `.env`の`GOOGLE_REDIRECT_URI`とConsoleのredirect URIが一致していることを確認する
-
-Redirect URIが1文字でも異なる場合、Googleは`redirect_uri_mismatch`を返します。
-
-### テスト・確認コマンド
+## テスト・確認コマンド
 
 ```bash
 cd backend
@@ -249,8 +320,8 @@ node --check google-auth.mjs
 node --check google-calendar.mjs
 
 cd ../frontend
-npm run lint
-npm run build
+bun run lint
+bun run build
 ```
 
 テストには以下のAI／Action Decision／Google mockケースを含みます。

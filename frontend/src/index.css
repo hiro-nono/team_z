@@ -1,21 +1,29 @@
 @import "tailwindcss";
 
-:root {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #0f172a;
-  background: #f1f5f9;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* スクロールバー */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
 }
 
-body {
-  min-width: 320px;
-  margin: 0;
+::-webkit-scrollbar-thumb {
+  background-color: silver;
+  border-radius: 5px;
 }
 
-button,
-input {
-  font: inherit;
+::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE/Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+/* モーダル外をスクロールさせない */
+.react-modal-open {
+  overflow: hidden;
 }
