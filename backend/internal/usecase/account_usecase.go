@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/hiro-nono/team_z/backend/internal/model"
+	"github.com/hiro-nono/team_z/backend/internal/repository"
 )
 
 var (
@@ -23,6 +24,7 @@ var (
 type AccountRepository interface {
 	Create(ctx context.Context, account *model.Account) error
 	FindByID(ctx context.Context, id uuid.UUID) (*model.Account, error)
+	FindByAuthID(ctx context.Context, authID uuid.UUID) (*model.Account, error)
 	UpdateStatus(ctx context.Context, id uuid.UUID, status model.AccountStatus) error
 	UpdateWithdrawScheduledAt(ctx context.Context, id uuid.UUID, scheduledAt *time.Time) error
 }
@@ -56,7 +58,19 @@ func NewAccountUsecase(
 	}
 }
 
+// CreateAccount はauthIDに紐づくAccountを作成する。
+// 既に同じauthIDのAccountが存在する場合は新規作成せず、既存のAccountを返す(冪等)。
+// これはフロントエンドのサインアップ直後の作成呼び出しが、通信エラー等で
+// アカウント作成自体は成功しているのに再試行されるケースに対応するため。
 func (u *AccountUsecase) CreateAccount(ctx context.Context, authID uuid.UUID) (*model.Account, error) {
+	existing, err := u.accountRepository.FindByAuthID(ctx, authID)
+	if err == nil {
+		return existing, nil
+	}
+	if !errors.Is(err, repository.ErrAccountNotFound) {
+		return nil, fmt.Errorf("failed to find account: %w", err)
+	}
+
 	account := &model.Account{
 		ID:            uuid.New(),
 		AuthID:        authID,

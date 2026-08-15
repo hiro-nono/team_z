@@ -44,6 +44,18 @@ func (r *AccountRepository) FindByID(ctx context.Context, id uuid.UUID) (*model.
 	return &account, nil
 }
 
+// FindByAuthID はSupabase Auth IDに紐づくAccountを取得する
+func (r *AccountRepository) FindByAuthID(ctx context.Context, authID uuid.UUID) (*model.Account, error) {
+	var account model.Account
+	if err := dbFromContext(ctx, r.db).First(&account, "auth_id = ?", authID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrAccountNotFound
+		}
+		return nil, fmt.Errorf("failed to find account: %w", err)
+	}
+	return &account, nil
+}
+
 // UpdateStatus はアカウントの現在ステータスを更新する
 // 物理削除は行わず、退会もこのメソッドでAccountStatusWithdrawnへ更新することで対応する
 func (r *AccountRepository) UpdateStatus(ctx context.Context, id uuid.UUID, status model.AccountStatus) error {

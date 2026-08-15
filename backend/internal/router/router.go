@@ -2,6 +2,7 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/hiro-nono/team_z/backend/internal/middleware"
 )
 
 // AccountHandler はrouterがAccount関連エンドポイントの登録に必要とするハンドラ群
@@ -30,6 +31,7 @@ type AuthMiddleware interface {
 // NewRouter はアプリケーションの全エンドポイントを登録したgin.Engineを生成する
 func NewRouter(accountController AccountHandler, csrfController CSRFHandler, googleCalendarConnectionController GoogleCalendarConnectionHandler, authMiddleware AuthMiddleware) *gin.Engine {
 	engine := gin.Default()
+	engine.Use(middleware.CORSMiddleware())
 
 	engine.GET("/csrf-token", csrfController.IssueToken)
 

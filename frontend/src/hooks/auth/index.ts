@@ -73,9 +73,6 @@ export const useAuthHooks = () => {
     // エラーハンドリング
     switchSupabaseErrorHandling(error)
 
-    console.log('signup data:', data);
-console.error('signup error:', error);
-
     if (error || !data.user) {
       return;
     }

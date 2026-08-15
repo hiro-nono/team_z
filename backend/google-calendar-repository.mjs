@@ -1,13 +1,17 @@
 import { randomUUID } from 'node:crypto'
 import { DatabaseError } from './db.mjs'
 
+// google_calendar_connectionsの実カラムはprovider/provider_id/expired_at/scope(単数)であり、
+// Goバックエンド(internal/model/google_calendar_connection.go)のスキーマに合わせている。
+const GOOGLE_PROVIDER = 'google'
+
 export const GOOGLE_CALENDAR_CONNECTION_SELECT_SQL = `
   SELECT
-    provider_user_id,
+    provider_id,
     access_token,
     refresh_token,
-    expires_at,
-    scopes
+    expired_at,
+    scope
   FROM google_calendar_connections
   WHERE account_id = $1
   LIMIT 1
@@ -17,32 +21,34 @@ const GOOGLE_CALENDAR_CONNECTION_UPSERT_SQL = `
   INSERT INTO google_calendar_connections (
     id,
     account_id,
-    provider_user_id,
+    provider,
+    provider_id,
     access_token,
     refresh_token,
-    expires_at,
-    scopes
+    expired_at,
+    scope
   )
-  VALUES ($1, $2, $3, $4, $5, $6, $7)
+  VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
   ON CONFLICT (account_id) DO UPDATE SET
-    provider_user_id = EXCLUDED.provider_user_id,
+    provider = EXCLUDED.provider,
+    provider_id = EXCLUDED.provider_id,
     access_token = EXCLUDED.access_token,
     refresh_token = EXCLUDED.refresh_token,
-    expires_at = EXCLUDED.expires_at,
-    scopes = EXCLUDED.scopes,
+    expired_at = EXCLUDED.expired_at,
+    scope = EXCLUDED.scope,
     updated_at = NOW()
-  RETURNING provider_user_id, access_token, refresh_token, expires_at, scopes
+  RETURNING provider_id, access_token, refresh_token, expired_at, scope
 `
 
 const GOOGLE_CALENDAR_CONNECTION_UPDATE_SQL = `
   UPDATE google_calendar_connections
   SET access_token = $2,
       refresh_token = $3,
-      expires_at = $4,
-      scopes = $5,
+      expired_at = $4,
+      scope = $5,
       updated_at = NOW()
   WHERE account_id = $1
-  RETURNING provider_user_id, access_token, refresh_token, expires_at, scopes
+  RETURNING provider_id, access_token, refresh_token, expired_at, scope
 `
 
 function toEpochMilliseconds(value) {
@@ -76,12 +82,16 @@ function mapConnection(row) {
   }
 
   return {
-    providerUserId: row.provider_user_id ?? null,
+    providerUserId: row.provider_id || null,
     accessToken: row.access_token ?? null,
     refreshToken: row.refresh_token ?? null,
-    expiresAt: toEpochMilliseconds(row.expires_at),
-    scopes: normalizeScopes(row.scopes),
+    expiresAt: toEpochMilliseconds(row.expired_at),
+    scopes: normalizeScopes(row.scope),
   }
+}
+
+function scopesToText(scopes) {
+  return normalizeScopes(scopes).join(' ')
 }
 
 function assertPool(pool) {
@@ -125,11 +135,13 @@ export class GoogleCalendarConnectionRepository {
       const result = await this.pool.query(GOOGLE_CALENDAR_CONNECTION_UPSERT_SQL, [
         connection.id ?? randomUUID(),
         connection.accountId,
-        connection.providerUserId ?? null,
+        GOOGLE_PROVIDER,
+        // provider_idはNOT NULLだが、calendar.events scopeだけではGoogleのuser IDを取得しないため空文字を許容する
+        connection.providerUserId ?? '',
         connection.accessToken ?? null,
         connection.refreshToken ?? null,
         connection.expiresAt ? new Date(connection.expiresAt) : null,
-        normalizeScopes(connection.scopes),
+        scopesToText(connection.scopes),
       ])
       return mapConnection(result.rows[0])
     } catch (error) {
@@ -153,7 +165,7 @@ export class GoogleCalendarConnectionRepository {
         patch.accessToken ?? existing.accessToken,
         patch.refreshToken ?? existing.refreshToken,
         expiresAt ? new Date(expiresAt) : null,
-        normalizeScopes(patch.scopes ?? existing.scopes),
+        scopesToText(patch.scopes ?? existing.scopes),
       ])
       return mapConnection(result.rows[0])
     } catch (error) {

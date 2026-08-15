@@ -1,4 +1,6 @@
 import { type ChangeEvent, type DragEvent, useEffect, useState } from 'react'
+import { supabase } from '../../supabase'
+import { publicApi } from '../../axios'
 
 type ActionDecision = 'AUTO_CREATE' | 'CONFIRM_REQUIRED' | 'BLOCKED'
 type CandidateKind = 'event' | 'deadline'
@@ -136,6 +138,33 @@ function candidateKey(candidate: CalendarCandidate) {
   return [candidate.kind, candidate.title.trim().normalize('NFKC').toLocaleLowerCase('ja-JP'), candidate.date ?? '', candidate.start_time ?? ''].join('|')
 }
 
+// user_metadata.account_idはサインアップ直後にセットされるが、当時の通信エラー等で
+// 反映されていないケースがあるため、欠けていればバックエンドから取得し直して補完する。
+async function getAccountId(): Promise<string | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return null
+  }
+
+  const existingAccountId = user.user_metadata?.account_id
+  if (typeof existingAccountId === 'string' && existingAccountId.length > 0) {
+    return existingAccountId
+  }
+
+  try {
+    const { data: account } = await publicApi.post<{ id: string }>('/accounts', {
+      auth_id: user.id,
+    })
+    await supabase.auth.updateUser({ data: { account_id: account.id } })
+    return account.id
+  } catch {
+    return null
+  }
+}
+
 function getErrorMessage(payload: unknown, fallback: string) {
   if (typeof payload === 'object' && payload !== null) {
     const apiError = payload as ApiErrorResponse
@@ -249,7 +278,13 @@ function PDFCalendar() {
   useEffect(() => {
     const refreshGoogleStatus = async () => {
       try {
-        const response = await fetch('/api/google/status')
+        const accountId = await getAccountId()
+        if (!accountId) {
+          throw new Error('アカウント情報を取得できませんでした。')
+        }
+        const response = await fetch('/api/google/status', {
+          headers: { 'X-Account-ID': accountId },
+        })
         const payload: unknown = await response.json()
         if (!response.ok || typeof payload !== 'object' || payload === null || typeof (payload as { connected?: unknown }).connected !== 'boolean') {
           throw new Error('Google Calendarの接続状態を取得できませんでした。')
@@ -350,7 +385,13 @@ function PDFCalendar() {
     setGoogleMessage('')
 
     try {
-      const response = await fetch('/api/google/auth/start')
+      const accountId = await getAccountId()
+      if (!accountId) {
+        throw new Error('アカウント情報を取得できませんでした。再度ログインしてください。')
+      }
+      const response = await fetch('/api/google/auth/start', {
+        headers: { 'X-Account-ID': accountId },
+      })
       const payload: unknown = await response.json()
       const authorization = payload as AuthorizationResponse
       if (!response.ok || typeof authorization.url !== 'string') {
@@ -371,9 +412,13 @@ function PDFCalendar() {
     }))
 
     try {
+      const accountId = await getAccountId()
+      if (!accountId) {
+        throw new Error('アカウント情報を取得できませんでした。再度ログインしてください。')
+      }
       const response = await fetch('/api/calendar/events', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Account-ID': accountId },
         body: JSON.stringify({
           candidate,
           confirmed: candidate.action_decision === 'CONFIRM_REQUIRED',
