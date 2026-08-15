@@ -5,12 +5,14 @@ import (
 	"log"
 	"time"
 
+	"github.com/hiro-nono/team_z/backend/internal/aiprovider"
 	"github.com/hiro-nono/team_z/backend/internal/auth"
 	"github.com/hiro-nono/team_z/backend/internal/config"
 	"github.com/hiro-nono/team_z/backend/internal/controller"
 	"github.com/hiro-nono/team_z/backend/internal/crypto"
 	"github.com/hiro-nono/team_z/backend/internal/db"
 	"github.com/hiro-nono/team_z/backend/internal/googleauth"
+	"github.com/hiro-nono/team_z/backend/internal/googlecalendar"
 	"github.com/hiro-nono/team_z/backend/internal/job"
 	"github.com/hiro-nono/team_z/backend/internal/middleware"
 	"github.com/hiro-nono/team_z/backend/internal/repository"
@@ -50,6 +52,34 @@ func main() {
 	googleCalendarConnectionUsecase := usecase.NewGoogleCalendarConnectionUsecase(googleCalendarConnectionRepository, tokenCipher)
 	googleCalendarConnectionController := controller.NewGoogleCalendarConnectionController(googleCalendarConnectionUsecase)
 
+	googleTokenExchangeService := googleauth.NewGoogleTokenExchangeService(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleRedirectURI)
+	googleAuthUsecase := usecase.NewGoogleAuthUsecase(
+		accountRepository,
+		tokenCipher,
+		googleTokenExchangeService,
+		googleCalendarConnectionUsecase,
+		googleCalendarConnectionRepository,
+		usecase.GoogleAuthConfig{
+			ClientID:    cfg.GoogleClientID,
+			RedirectURI: cfg.GoogleRedirectURI,
+		},
+	)
+	googleAuthController := controller.NewGoogleAuthController(googleAuthUsecase, cfg.FrontendURL)
+
+	orcaRouterClient := aiprovider.NewOrcaRouterClient(cfg.OrcaRouterBaseURL, cfg.OrcaRouterAPIKey, cfg.OrcaRouterModel)
+	analyzeUsecase := usecase.NewAnalyzeUsecase(orcaRouterClient)
+	analyzeController := controller.NewAnalyzeController(analyzeUsecase)
+
+	googleCalendarClient := googlecalendar.NewClient()
+	calendarEventUsecase := usecase.NewCalendarEventUsecase(
+		accountRepository,
+		googleCalendarConnectionRepository,
+		tokenCipher,
+		googleTokenExchangeService,
+		googleCalendarClient,
+	)
+	calendarEventController := controller.NewCalendarEventController(calendarEventUsecase)
+
 	authService := auth.NewAuthService(cfg.SupabaseURL)
 	authMiddleware := middleware.NewAuthMiddleware(authService)
 
@@ -67,7 +97,7 @@ func main() {
 	accountDeletionJob := job.NewAccountDeletionJob(accountDeletionUsecase, accountDeletionJobInterval)
 	go accountDeletionJob.Start(context.Background())
 
-	engine := router.NewRouter(accountController, csrfController, googleCalendarConnectionController, authMiddleware)
+	engine := router.NewRouter(accountController, csrfController, googleCalendarConnectionController, googleAuthController, analyzeController, calendarEventController, authMiddleware)
 
 	if err := engine.Run(":" + cfg.Port); err != nil {
 		log.Fatalf("failed to start server: %v", err)
