@@ -31,3 +31,10 @@ Thumbs.db
 
 *.log
 logs/
+
+
+# =========================
+# Dependencies
+# =========================
+
+node_modules/

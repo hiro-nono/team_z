@@ -1,17 +1,29 @@
 import { createServer } from 'node:http'
+import { getAccountIdFromRequest } from './account-context.mjs'
 import { addActionDecisions } from './action-decision.mjs'
+import { AiClient, buildPdfResponseRequest } from './ai-client.mjs'
+import { createDatabasePool } from './db.mjs'
+import { GoogleCalendarConnectionRepository } from './google-calendar-repository.mjs'
+import { GoogleOAuthService } from './google-auth.mjs'
+import { GoogleCalendarService } from './google-calendar.mjs'
 import { NOTICE_SCHEMA, SYSTEM_PROMPT, validateNotice } from './notice-schema.mjs'
 
-const PORT = Number(process.env.PORT ?? 8787)
+const PORT = Number(process.env.PORT ?? 3001)
 const MAX_FILE_SIZE_BYTES = Number(process.env.MAX_FILE_SIZE_BYTES ?? 10 * 1024 * 1024)
-const OPENAI_API_URL = process.env.OPENAI_API_URL ?? 'https://api.openai.com/v1/responses'
-const OPENAI_MODEL = process.env.OPENAI_MODEL ?? 'gpt-4.1-mini'
+const MAX_JSON_BODY_BYTES = 1024 * 1024
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173'
+const FRONTEND_URL = process.env.FRONTEND_URL ?? FRONTEND_ORIGIN
+
+const aiClient = new AiClient()
+const databasePool = process.env.DATABASE_URL ? createDatabasePool() : null
+const googleConnectionRepository = new GoogleCalendarConnectionRepository({ pool: databasePool })
+const googleOAuthService = new GoogleOAuthService({ tokenStore: googleConnectionRepository })
+const googleCalendarService = new GoogleCalendarService({ authService: googleOAuthService })
 
 function setResponseHeaders(response) {
   response.setHeader('Access-Control-Allow-Origin', FRONTEND_ORIGIN)
-  response.setHeader('Access-Control-Allow-Headers', 'Content-Type')
-  response.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  response.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Account-ID')
+  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
   response.setHeader('Vary', 'Origin')
 }
 
@@ -61,72 +73,20 @@ async function analyzePdf(file) {
     throw error
   }
 
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) {
-    const error = new Error('OPENAI_API_KEYがサーバーに設定されていません。')
-    error.code = 'AI_NOT_CONFIGURED'
-    error.statusCode = 503
-    throw error
-  }
-
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 90_000)
 
   try {
-    const openAiResponse = await fetch(OPENAI_API_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        input: [
-          {
-            role: 'system',
-            content: [{ type: 'input_text', text: SYSTEM_PROMPT }],
-          },
-          {
-            role: 'user',
-            content: [
-              { type: 'input_text', text: `ファイル名: ${file.name || 'notice.pdf'}\nこのPDFを解析してください。` },
-              {
-                type: 'input_file',
-                filename: file.name || 'notice.pdf',
-                file_data: `data:application/pdf;base64,${bytes.toString('base64')}`,
-              },
-            ],
-          },
-        ],
-        text: {
-          format: {
-            type: 'json_schema',
-            name: 'school_notice',
-            strict: true,
-            schema: NOTICE_SCHEMA,
-          },
-        },
+    const { payload } = await aiClient.responsesCreate(
+      buildPdfResponseRequest({
+        model: aiClient.model,
+        systemPrompt: SYSTEM_PROMPT,
+        fileName: file.name,
+        pdfBytes: bytes,
+        schema: NOTICE_SCHEMA,
       }),
-    })
-
-    let payload
-    try {
-      payload = await openAiResponse.json()
-    } catch {
-      const error = new Error('AIサービスの応答を読み取れませんでした。')
-      error.code = 'AI_INVALID_RESPONSE'
-      error.statusCode = 502
-      throw error
-    }
-
-    if (!openAiResponse.ok) {
-      const upstreamMessage = payload?.error?.message || 'AIサービスからエラーが返されました。'
-      const error = new Error(upstreamMessage)
-      error.code = 'AI_UPSTREAM_ERROR'
-      error.statusCode = 502
-      throw error
-    }
+      { signal: controller.signal },
+    )
 
     const outputText = extractOutputText(payload)
     if (!outputText) {
@@ -221,6 +181,110 @@ async function getUploadedFile(request) {
   return file
 }
 
+async function parseJsonBody(request) {
+  const contentType = String(request.headers['content-type'] ?? '')
+  if (!contentType.startsWith('application/json')) {
+    const error = new Error('application/jsonでリクエストしてください。')
+    error.code = 'INVALID_CONTENT_TYPE'
+    error.statusCode = 400
+    throw error
+  }
+
+  const contentLength = Number(request.headers['content-length'] ?? 0)
+  if (contentLength > MAX_JSON_BODY_BYTES) {
+    const error = new Error('リクエストが大きすぎます。')
+    error.code = 'REQUEST_TOO_LARGE'
+    error.statusCode = 413
+    throw error
+  }
+
+  let body = ''
+  for await (const chunk of request) {
+    body += chunk.toString()
+    if (Buffer.byteLength(body) > MAX_JSON_BODY_BYTES) {
+      const error = new Error('リクエストが大きすぎます。')
+      error.code = 'REQUEST_TOO_LARGE'
+      error.statusCode = 413
+      throw error
+    }
+  }
+
+  try {
+    return JSON.parse(body)
+  } catch {
+    const error = new Error('JSONを読み取れませんでした。')
+    error.code = 'INVALID_JSON'
+    error.statusCode = 400
+    throw error
+  }
+}
+
+function redirectToFrontend(response, status, reason) {
+  const target = new URL(FRONTEND_URL)
+  target.searchParams.set('google', status)
+  if (reason) {
+    target.searchParams.set('reason', reason)
+  }
+  response.statusCode = 302
+  response.setHeader('Location', target.toString())
+  response.end()
+}
+
+function stripClientDecision(candidate) {
+  const cleanCandidate = { ...candidate }
+  delete cleanCandidate.action_decision
+  delete cleanCandidate.action_reason
+  return cleanCandidate
+}
+
+async function handleGoogleAuthCallback(response, url) {
+  const state = url.searchParams.get('state')
+  const oauthError = url.searchParams.get('error')
+
+  if (oauthError) {
+    const context = await googleOAuthService.consumeState(state)
+    if (!context) {
+      sendError(response, 400, 'OAUTH_STATE_MISMATCH', 'OAuth stateの検証に失敗しました。')
+      return
+    }
+    redirectToFrontend(response, 'error', 'oauth_denied')
+    return
+  }
+
+  const code = url.searchParams.get('code')
+  if (!state || !code) {
+    sendError(response, 400, 'OAUTH_CALLBACK_INVALID', 'OAuth callbackにcodeまたはstateがありません。')
+    return
+  }
+
+  try {
+    await googleOAuthService.exchangeCode(code, state)
+    redirectToFrontend(response, 'connected')
+  } catch (error) {
+    if (error?.code === 'OAUTH_STATE_MISMATCH') {
+      sendError(response, 400, error.code, error.message)
+      return
+    }
+    redirectToFrontend(response, 'error', error?.code ?? 'oauth_failed')
+  }
+}
+
+async function handleCalendarEventCreate(request, response) {
+  const accountId = getAccountIdFromRequest(request)
+  const body = await parseJsonBody(request)
+  if (typeof body !== 'object' || body === null || typeof body.candidate !== 'object' || body.candidate === null) {
+    sendError(response, 400, 'CANDIDATE_REQUIRED', 'calendar_candidateを指定してください。')
+    return
+  }
+
+  const result = await googleCalendarService.createEvent({
+    accountId,
+    candidate: stripClientDecision(body.candidate),
+    confirmed: body.confirmed === true,
+  })
+  sendJson(response, 200, result)
+}
+
 const server = createServer(async (request, response) => {
   try {
     const url = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`)
@@ -229,6 +293,29 @@ const server = createServer(async (request, response) => {
       setResponseHeaders(response)
       response.statusCode = 204
       response.end()
+      return
+    }
+
+    if (url.pathname === '/api/google/auth/start' && request.method === 'GET') {
+      const accountId = getAccountIdFromRequest(request)
+      const { url: authorizationUrl } = await googleOAuthService.createAuthorizationUrl(accountId)
+      sendJson(response, 200, { url: authorizationUrl })
+      return
+    }
+
+    if (url.pathname === '/api/google/auth/callback' && request.method === 'GET') {
+      await handleGoogleAuthCallback(response, url)
+      return
+    }
+
+    if ((url.pathname === '/api/google/status' || url.pathname === '/api/google/connection/status') && request.method === 'GET') {
+      const accountId = getAccountIdFromRequest(request)
+      sendJson(response, 200, await googleOAuthService.getConnectionStatus(accountId))
+      return
+    }
+
+    if (url.pathname === '/api/calendar/events' && request.method === 'POST') {
+      await handleCalendarEventCreate(request, response)
       return
     }
 

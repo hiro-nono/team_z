@@ -91,7 +91,7 @@ function isValidDate(value) {
   return date.toISOString().slice(0, 10) === value
 }
 
-function validateCandidate(candidate, index) {
+export function validateCandidate(candidate, index = 0) {
   if (typeof candidate !== 'object' || candidate === null || Array.isArray(candidate)) {
     return `calendar_candidates[${index}]がオブジェクトではありません。`
   }
